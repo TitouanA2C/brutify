@@ -151,7 +151,7 @@ export async function POST(request: Request) {
           userId: user.id,
           service: "openrouter",
           action: "script_generation",
-          model: "anthropic/claude-sonnet-4.6:beta",
+          model: "anthropic/claude-sonnet-4.6",
           tokensIn: estimateTokens(promptText),
           tokensOut: estimateTokens(fullText),
         }).catch(() => {})

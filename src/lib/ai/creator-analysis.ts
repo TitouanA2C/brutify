@@ -1,6 +1,6 @@
 import OpenAI from "openai"
 
-const MODEL = "anthropic/claude-sonnet-4.6:beta"
+const MODEL = "anthropic/claude-sonnet-4.6"
 
 function getClient(): OpenAI {
   const apiKey = process.env.OPENROUTER_API_KEY

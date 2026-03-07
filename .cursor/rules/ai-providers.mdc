@@ -10,7 +10,7 @@ Deux providers distincts, jamais d'autre :
 
 ## OpenRouter — génération de texte
 - Client : `new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: "https://openrouter.ai/api/v1" })`
-- Modèle : `anthropic/claude-sonnet-4-20250514`
+- Modèle : `anthropic/claude-sonnet-4.6`
 - Usages : scripts, analyse vidéo, analyse hooks
 - Headers : `HTTP-Referer: https://brutify.app`, `X-Title: Brutify`
 

@@ -7,10 +7,10 @@ export type ApiService = "openrouter" | "openai_whisper" | "apify"
 // OpenAI Whisper: $0.006/min audio
 // Apify Instagram: ~$0.50/1000 résultats
 const PRICE_PER_M_TOKENS_IN: Record<string, number> = {
-  "anthropic/claude-sonnet-4.6:beta": 3.0,
+  "anthropic/claude-sonnet-4.6": 3.0,
 }
 const PRICE_PER_M_TOKENS_OUT: Record<string, number> = {
-  "anthropic/claude-sonnet-4.6:beta": 15.0,
+  "anthropic/claude-sonnet-4.6": 15.0,
 }
 const WHISPER_PRICE_PER_MIN = 0.006
 const APIFY_PRICE_PER_1000_RESULTS = 0.5
