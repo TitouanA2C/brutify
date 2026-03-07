@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/scrape",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/followers",
+      "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/cron/own-videos",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}

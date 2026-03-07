@@ -1,0 +1,287 @@
+---
+description: Brutify Design System — UI patterns, couleurs, typos, animations, composants. Utilise cette référence pour tout élément UI créé ou modifié dans Brutify.
+globs: **/*.tsx
+alwaysApply: false
+---
+
+# Brutify Design System
+
+## Couleurs
+
+### Palette principale
+- **Background page** : `bg-[#060608]` (landing) ou `bg-brutify-bg` (#09090B, dashboard)
+- **Cards** : `bg-[#111113]/60` ou `bg-brutify-card` (#111113)
+- **Elevated surfaces** : `bg-brutify-elevated` (#1A1A1E)
+- **Sidebar** : `bg-brutify-sidebar` (#0D0D12)
+- **Illustrations/Mockups** : `bg-[#0D0D12]` ou `bg-[#0c0c14]/80`
+
+### Or / Gold (accent principal, JAMAIS de bleu)
+- **Gold principal** : `text-brutify-gold` (#FFAB00)
+- **Gold clair** : `text-brutify-gold-light` (#FFD700)
+- **Gold foncé** : `text-brutify-gold-dark` (#CC8800)
+- **Gold gradient texte** : `text-gold-gradient` (vertical 180deg: #FFD700 → #FFAB00 → #CC8800)
+- **Gold gradient fond** : `bg-gold-gradient` (135deg: #FFD700 → #FFAB00 → #CC8800)
+
+### Texte
+- **Primary** : `text-brutify-text-primary` (#E4E4E8)
+- **Secondary** : `text-brutify-text-secondary` (rgba 255,255,255,0.4)
+- **Muted** : `text-brutify-text-muted` (rgba 255,255,255,0.2)
+
+### Bordures
+- **Subtile** : `border-white/[0.06]` — par défaut pour cards, sections
+- **Hover** : `border-white/[0.1]`
+- **Gold subtile** : `border-brutify-gold/[0.12]` à `border-brutify-gold/20`
+- **Gold active** : `border-brutify-gold/30`
+
+### Sémantiques
+- **Success** : `text-brutify-success` (#00E5A0)
+- **Danger** : `text-brutify-danger` (#FF4444)
+
+---
+
+## Typographie
+
+### Fonts
+- **Display (titres)** : `font-display` = Anton 400, uppercase implicite, toujours avec `tracking-wider`
+- **Body (tout le reste)** : `font-body` = Montserrat 300-700
+
+### Tailles titres
+- **Hero H1** : `text-5xl sm:text-6xl md:text-7xl lg:text-[80px] leading-[0.95]`
+- **Section H2** : `text-4xl md:text-5xl` ou `text-4xl md:text-6xl` (impact fort)
+- **CTA H2** : `text-5xl md:text-7xl lg:text-8xl leading-[0.95]`
+- **Card H3** : `text-xl md:text-2xl`
+- **Body** : `text-sm` (14px) ou `text-base` (16px)
+- **Small/Meta** : `text-xs` (12px) ou `text-[11px]`
+- **Micro** : `text-[10px]`, `text-[9px]`, `text-[8px]` (badges, labels)
+
+### Pattern titre avec accent gold
+```tsx
+<h2 className="font-display text-4xl md:text-5xl tracking-wider text-brutify-text-primary">
+  Texte normal <span className="text-gold-gradient">mot accent</span>
+</h2>
+```
+
+---
+
+## Backgrounds & Overlays
+
+### Background page (landing)
+```tsx
+<div className="relative min-h-screen bg-[#060608] overflow-x-clip">
+  {/* Radial gradient chaud */}
+  <div className="fixed inset-0 pointer-events-none"
+    style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,171,0,0.06) 0%, rgba(204,136,0,0.02) 40%, transparent 70%)" }} />
+  {/* Gold bloom central */}
+  <div className="fixed top-[-200px] left-1/2 -translate-x-1/2 w-[1200px] h-[800px] pointer-events-none opacity-[0.045]"
+    style={{ background: "radial-gradient(ellipse at center, #FFAB00 0%, transparent 65%)", filter: "blur(80px)" }} />
+  {/* Blobs animés */}
+  <div className="fixed ... pointer-events-none opacity-[0.03] animate-aurora-1" />
+  <div className="fixed ... pointer-events-none opacity-[0.025] animate-aurora-2" />
+  {/* Vignette */}
+  <div className="fixed inset-0 pointer-events-none"
+    style={{ background: "radial-gradient(ellipse 70% 70% at 50% 50%, transparent 0%, #060608 100%)" }} />
+  {/* Overlays texture */}
+  <div className="noise-overlay" />
+  <div className="grid-overlay" />
+</div>
+```
+- **IMPORTANT** : Utiliser `overflow-x-clip` (PAS `overflow-hidden`) pour ne pas casser `position: sticky`
+- Les blobs gold sont animés avec `animate-aurora-1`, `animate-aurora-2`
+
+### Glow section (ambiance gold locale)
+```tsx
+<div className="absolute inset-0 opacity-[0.04]"
+  style={{ background: "radial-gradient(ellipse at center, #FFAB00 0%, transparent 60%)" }} />
+```
+
+---
+
+## Composants — Patterns récurrents
+
+### Badge / Pill
+```tsx
+<span className="inline-flex items-center gap-2 rounded-full border border-brutify-gold/20 bg-brutify-gold/[0.06] px-4 py-1.5 text-xs font-body font-medium text-brutify-gold">
+  Texte du badge
+</span>
+```
+
+### Card
+```tsx
+<div className="rounded-2xl border border-white/[0.06] bg-[#111113]/60 p-6 hover:border-white/[0.1] transition-all duration-300">
+```
+- **Card active/selected** : `border-brutify-gold/20 bg-brutify-gold/[0.04]`
+- **Card glassmorphism** : `bg-[#0c0c14]/80 backdrop-blur-md border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4)]`
+
+### Bouton CTA primaire (gold)
+```tsx
+<Link className="group relative inline-flex items-center gap-3 rounded-xl bg-gold-gradient px-8 py-4 font-body text-base font-bold text-brutify-bg shadow-[0_0_30px_rgba(255,171,0,0.3),0_0_60px_rgba(255,171,0,0.1)] hover:shadow-[0_0_40px_rgba(255,171,0,0.4),0_0_80px_rgba(255,171,0,0.15)] transition-all duration-300 hover:scale-[1.03]">
+  Texte <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+</Link>
+```
+
+### Bouton CTA Hero (premium, bordure dorée)
+```tsx
+<Link className="group relative inline-flex">
+  <div className="absolute -inset-3 rounded-2xl bg-brutify-gold/20 blur-2xl opacity-50 group-hover:opacity-80 transition-opacity duration-500" />
+  <div className="absolute -inset-[1px] rounded-xl bg-gradient-to-b from-brutify-gold-light via-brutify-gold to-brutify-gold-dark opacity-80" />
+  <div className="relative flex items-center gap-3 rounded-[10px] bg-gradient-to-b from-[#1a1400] via-[#130f00] to-[#0d0a00] px-8 py-3.5">
+    <span className="text-[15px] font-body font-semibold text-brutify-gold-light group-hover:text-white">Texte</span>
+    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brutify-gold/15">
+      <ArrowRight className="h-3.5 w-3.5 text-brutify-gold" />
+    </div>
+  </div>
+</Link>
+```
+
+### Bouton secondaire (outline)
+```tsx
+<button className="inline-flex items-center rounded-full border border-white/[0.15] bg-white/[0.05] px-5 py-2 text-[14px] font-body font-semibold text-white hover:bg-white/[0.1] hover:border-white/[0.25] transition-all duration-200">
+```
+
+### Bouton ghost doré
+```tsx
+<Link className="group inline-flex items-center gap-2 rounded-xl border border-brutify-gold/20 bg-brutify-gold/[0.04] px-5 py-3 text-sm font-body font-semibold text-brutify-gold hover:bg-brutify-gold/[0.08] hover:border-brutify-gold/30 transition-all duration-300">
+```
+
+### Toggle (Mensuel/Annuel)
+```tsx
+<div className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.03] p-1">
+  <button className={cn("rounded-full px-5 py-2 text-sm font-body font-medium transition-all duration-200",
+    active ? "bg-brutify-text-primary text-brutify-bg" : "text-brutify-text-muted"
+  )}>Option</button>
+</div>
+```
+
+### Séparateur
+```tsx
+<div className="h-px bg-white/[0.06]" />         {/* horizontal */}
+<div className="h-3 w-px bg-white/[0.08]" />     {/* vertical petit */}
+```
+
+### Navbar (floating pill)
+- `rounded-full`, `bg-white/[0.03]`, `backdrop-blur-xl`
+- `border border-brutify-gold/[0.12]`
+- `shadow-[0_0_20px_rgba(255,171,0,0.06),0_0_60px_rgba(255,171,0,0.03)]`
+
+---
+
+## Animations — Framer Motion
+
+### Pattern d'entrée au scroll (section)
+```tsx
+const ref = useRef(null);
+const inView = useInView(ref, { once: true, margin: "-80px" });
+
+<motion.div
+  initial={{ opacity: 0, y: 30 }}
+  animate={inView ? { opacity: 1, y: 0 } : {}}
+  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+>
+```
+
+### Easing standard
+- **Expo ease-out** : `[0.16, 1, 0.3, 1]` — pour toutes les animations d'apparition
+- **Simple** : `"easeOut"` — pour les hovers et micro-interactions
+
+### Stagger pattern (éléments en cascade)
+```tsx
+{items.map((item, i) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={inView ? { opacity: 1, y: 0 } : {}}
+    transition={{ delay: 0.2 + i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+  />
+))}
+```
+- Delay initial : `0.1` à `0.3`
+- Incrément par item : `0.08` à `0.15`
+
+### Entrée depuis les côtés
+- Gauche : `initial={{ opacity: 0, x: -30 }}` → `animate={{ opacity: 1, x: 0 }}`
+- Droite : `initial={{ opacity: 0, x: 30 }}`
+- Marquee rows : `x: ±80`
+
+### Scale entrance (cards pricing, floating cards)
+```tsx
+initial={{ opacity: 0, y: 50, scale: 0.92 }}
+animate={{ opacity: 1, y: 0, scale: 1 }}
+transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+```
+
+### Hover card
+```tsx
+whileHover={{ y: -6, transition: { duration: 0.25 } }}
+```
+
+### AnimatePresence (tabs, accordion, changement de contenu)
+```tsx
+<AnimatePresence mode="wait">
+  <motion.div
+    key={activeKey}
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -8 }}
+    transition={{ duration: 0.25, ease: "easeOut" }}
+  />
+</AnimatePresence>
+```
+
+### Accordion open/close
+```tsx
+<motion.div
+  initial={{ height: 0, opacity: 0 }}
+  animate={{ height: "auto", opacity: 1 }}
+  exit={{ height: 0, opacity: 0 }}
+  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+  className="overflow-hidden"
+/>
+```
+
+### Scroll-jacking (sticky + useScroll)
+```tsx
+const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end end"] });
+// Container: height = steps * 50vh
+// Content: position sticky, top 0, h-screen
+// Map scrollYProgress → activeStep
+```
+
+### Logo animation (stagger lettres)
+- Chaque lettre : `delay: i * 0.05, duration: 0.35, ease: "easeOut"`
+- Mouvement : `y: 6 → 0`, `opacity: 0 → 1`
+
+---
+
+## Shadows & Glows
+
+- **Gold glow standard** : `shadow-gold-glow` = `0 0 30px rgba(255,171,0,0.15)`
+- **Gold glow large** : `shadow-gold-glow-lg` = `0 0 60px rgba(255,171,0,0.25)`
+- **CTA glow** : `shadow-[0_0_30px_rgba(255,171,0,0.3),0_0_60px_rgba(255,171,0,0.1)]`
+- **CTA glow hover** : `shadow-[0_0_40px_rgba(255,171,0,0.4),0_0_80px_rgba(255,171,0,0.15)]`
+- **Card deep shadow** : `shadow-[0_8px_32px_rgba(0,0,0,0.4)]`
+- **Navbar glow** : `shadow-[0_0_20px_rgba(255,171,0,0.06),0_0_60px_rgba(255,171,0,0.03)]`
+
+---
+
+## Spacing & Layout
+
+- **Max-width sections** : `max-w-5xl` ou `max-w-6xl` + `mx-auto`
+- **Section padding** : `py-24 px-6`
+- **Section separator** : `border-t border-white/[0.04]`
+- **Card padding** : `p-5` ou `p-6`
+- **Grid** : `grid grid-cols-1 md:grid-cols-2` ou `md:grid-cols-3`, `gap-5` ou `gap-12`
+- **Container centré** : toujours `mx-auto` + `max-w-*`
+
+---
+
+## Règles fondamentales
+
+1. **Jamais de bleu** — Tout accent est gold/amber (#FFAB00, #FFD700, #CC8800)
+2. **Fond ultra sombre** — Toujours sur des fonds #060608 à #111113
+3. **Opacités basses** — Les bordures, glows et fonds sont très subtils (0.02 à 0.15)
+4. **Font display = Anton** — Uniquement pour les titres, toujours avec `tracking-wider`
+5. **Font body = Montserrat** — Pour tout le reste (boutons, paragraphes, labels)
+6. **Animations smooth** — Easing `[0.16, 1, 0.3, 1]`, durées longues (0.6-1.2s)
+7. **Entrée au scroll** — Toutes les sections ont une animation d'entrée via `useInView`
+8. **Glassmorphism** — `backdrop-blur-md/xl` + `bg-white/[0.03]` pour les éléments flottants
+9. **Hover feedback** — Changement de bordure, légère montée (`y: -6`), glow plus intense
+10. **Gold gradient** — Toujours 3 stops : #FFD700 → #FFAB00 → #CC8800

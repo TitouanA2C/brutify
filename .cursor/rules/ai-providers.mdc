@@ -1,0 +1,27 @@
+---
+description: Configuration des providers IA (OpenRouter + OpenAI Whisper)
+globs: src/lib/ai/**,src/app/api/**/route.ts
+alwaysApply: false
+---
+
+# Providers IA — Brutify
+
+Deux providers distincts, jamais d'autre :
+
+## OpenRouter — génération de texte
+- Client : `new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: "https://openrouter.ai/api/v1" })`
+- Modèle : `anthropic/claude-sonnet-4-20250514`
+- Usages : scripts, analyse vidéo, analyse hooks
+- Headers : `HTTP-Referer: https://brutify.app`, `X-Title: Brutify`
+
+## OpenAI direct — transcription audio
+- Client : `new OpenAI({ apiKey: process.env.OPENAI_API_KEY })`
+- Modèle : `whisper-1`
+- Usage : transcription vidéo uniquement
+
+## Règles strictes
+- Ne jamais utiliser `ANTHROPIC_API_KEY`
+- Ne jamais passer Whisper par OpenRouter
+- Ne jamais passer la génération texte par OpenAI direct
+- Vérifier `OPENROUTER_API_KEY` dans les routes de génération/analyse
+- Vérifier `OPENAI_API_KEY` dans les routes de transcription
