@@ -24,10 +24,12 @@ import {
   Loader2,
   AlertTriangle,
   ExternalLink,
+  TrendingUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { Video } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { useCredits } from "@/lib/credits-context";
 import { CreditConfirmModal } from "@/components/ui/CreditConfirmModal";
 import { useCreateVaultItem } from "@/hooks/useVault";
