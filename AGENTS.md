@@ -41,3 +41,6 @@ Single Next.js app (not a monorepo). Key directories:
 - `next.config.mjs` has `ignoreBuildErrors: true` for both ESLint and TypeScript, so `npm run build` will succeed even with type errors. Run `npm run lint` separately.
 - The app uses Supabase hosted (cloud), not local Supabase CLI. No Docker needed.
 - ESLint has some pre-existing warnings (unused vars, missing deps in hooks) — these are not from any recent changes.
+- **Database migrations**: SQL migration files are in `supabase/`. They must be run manually in the Supabase Dashboard SQL Editor. The `creator_analyses` table (required for competitive analysis feature) is defined in `supabase/creator_analyses.sql`.
+- **Scripts page**: Hook and Structure selection fields appear empty until a competitive analysis has been completed — this is by design, not a bug. The data comes from `/api/scripts/insights` which aggregates completed creator analyses.
+- **Direct DB access**: The cloud VM cannot reach Supabase PostgreSQL directly (IPv6 only, network restricted). Use Supabase Dashboard SQL Editor for DDL operations.
