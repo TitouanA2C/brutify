@@ -88,8 +88,6 @@ export async function GET(request: Request) {
     }
   }
 
-  console.log(`[Cron/Followers] scraped=${scraped} errors=${errors.length} remaining=${toScrape.length - scraped}`)
-
   return NextResponse.json({
     scraped,
     errors,

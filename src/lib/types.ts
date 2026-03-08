@@ -20,9 +20,6 @@ export type BrutBoardStatus =
   | "scheduled"
   | "published";
 
-export type ScriptStatus = "draft" | "saved";
-export type IdeaType = "video" | "script" | "manual" | "ai";
-
 // Re-export DTO types under their canonical names so components
 // don't need to change their import paths.
 export type { CreatorDTO as Creator, VideoDTO as Video } from "@/lib/api/helpers";
@@ -40,24 +37,4 @@ export interface ScriptStructure {
   name: string;
   skeleton: string;
   description: string;
-}
-
-export interface BrutBoardItem {
-  id: string;
-  title: string;
-  status: BrutBoardStatus;
-  date: string;
-  platform: Platform;
-  scriptId?: string;
-  sourceVideoId?: string;
-  notes: string;
-}
-
-export interface Idea {
-  id: string;
-  type: IdeaType;
-  content: string;
-  source?: string;
-  tags: string[];
-  createdAt: string;
 }

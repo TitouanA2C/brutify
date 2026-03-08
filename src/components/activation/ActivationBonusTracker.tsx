@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Check, Loader2, Gift, Sparkles, Users, Video, PenTool, LayoutGrid } from "lucide-react"
+import { Check, Gift, Sparkles, Users, Video, PenTool, LayoutGrid } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useUser } from "@/hooks/useUser"
 

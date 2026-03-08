@@ -2,7 +2,6 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
@@ -52,8 +51,12 @@ const config: Config = {
         "aurora-2": "aurora2 25s ease-in-out infinite",
         "aurora-3": "aurora3 30s ease-in-out infinite",
         "border-beam": "border-beam calc(var(--duration)*1s) infinite linear",
+        "brutify-spin": "brutify-spin 0.8s linear infinite",
       },
       keyframes: {
+        "brutify-spin": {
+          to: { transform: "rotate(360deg)" },
+        },
         aurora1: {
           "0%, 100%": { transform: "translate(0, 0) scale(1)" },
           "33%": { transform: "translate(30px, -20px) scale(1.1)" },

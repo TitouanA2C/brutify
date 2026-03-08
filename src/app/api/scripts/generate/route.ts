@@ -89,32 +89,58 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle()
 
-  let positioning: any = null
+  let positioning: ScriptParams["positioning"] = null
   let hookTemplate = body.hook_type
   let structureSkeleton = body.structure_type
 
   if (analyses?.analysis) {
-    const analysisData = analyses.analysis as any
+    const analysisData = analyses.analysis as unknown as {
+      positioning?: ScriptParams["positioning"]
+      hooks?: { reusable_templates?: Array<{ hook_type: string; template: string }> }
+      script_structures?: { detected_structures?: Array<{ name: string; skeleton: string }> }
+    }
     positioning = analysisData.positioning || null
 
-    // Chercher le hook dans les analyses
     if (analysisData.hooks?.reusable_templates) {
       const matchingHook = analysisData.hooks.reusable_templates.find(
-        (h: any) => h.hook_type === body.hook_type
+        (h) => h.hook_type === body.hook_type
       )
       if (matchingHook) {
         hookTemplate = matchingHook.template
       }
     }
 
-    // Chercher la structure dans les analyses
     if (analysisData.script_structures?.detected_structures) {
       const matchingStruct = analysisData.script_structures.detected_structures.find(
-        (s: any) => s.name === body.structure_type
+        (s) => s.name === body.structure_type
       )
       if (matchingStruct) {
         structureSkeleton = matchingStruct.skeleton
       }
+    }
+  }
+
+  // Fetch video-specific insights when source_video_id is provided
+  let videoInsights: ScriptParams["videoInsights"] = null
+  if (body.source_video_id) {
+    const { data: videoAnalysis } = await supabase
+      .from("video_analyses")
+      .select("hook_analysis, style_analysis")
+      .eq("video_id", body.source_video_id)
+      .maybeSingle()
+
+    if (videoAnalysis?.style_analysis === "v2_structural" && videoAnalysis.hook_analysis) {
+      try {
+        const full = typeof videoAnalysis.hook_analysis === "string"
+          ? JSON.parse(videoAnalysis.hook_analysis)
+          : videoAnalysis.hook_analysis
+        videoInsights = {
+          value_analysis: full.value_analysis ?? undefined,
+          positioning: full.positioning ?? undefined,
+          style_notes: full.style_notes ?? undefined,
+          hook_explanation: full.hook_explanation ?? undefined,
+        }
+      } catch { /* parse error – continue without video insights */ }
     }
   }
 
@@ -126,6 +152,7 @@ export async function POST(request: Request) {
     hookTemplate,
     structureSkeleton,
     positioning,
+    videoInsights,
   }
 
   const encoder = new TextEncoder()

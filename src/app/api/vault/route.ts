@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     .select("*")
     .eq("user_id", user.id)
 
-  if (type && type !== "all" && ["video", "script", "manual", "ai"].includes(type)) {
+  if (type && type !== "all" && ["video", "script", "manual", "ai", "idea"].includes(type)) {
     query = query.eq("type", type)
   }
 
@@ -44,12 +44,13 @@ export async function POST(request: Request) {
   }
 
   let body: {
-    type: "video" | "script" | "manual"
+    type: "video" | "script" | "manual" | "ai" | "idea"
     content: string
     source_handle?: string
     source_video_id?: string
     source_script_id?: string
     tags?: string[]
+    metadata?: Record<string, unknown>
   }
 
   try {
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Contenu requis" }, { status: 400 })
   }
 
-  if (!["video", "script", "manual", "ai"].includes(body.type)) {
+  if (!["video", "script", "manual", "ai", "idea"].includes(body.type)) {
     return NextResponse.json({ error: "Type invalide" }, { status: 400 })
   }
 
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
       source_video_id: body.source_video_id || null,
       source_script_id: body.source_script_id || null,
       tags: body.tags ?? [],
+      metadata: body.metadata ?? {},
     })
     .select("*")
     .single()

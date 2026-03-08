@@ -67,9 +67,24 @@ export async function GET() {
   let positioning: CreatorAnalysisResult["positioning"] | null = null
 
   for (const analysis of analyses) {
-    const data = analysis.analysis as CreatorAnalysisResult
+    const data = analysis.analysis as unknown as CreatorAnalysisResult
 
-    // Hooks
+    // Build a map of hook_type → best outlier_score from the catalog
+    const hookScoreMap = new Map<string, number>()
+    if (data.hooks?.catalog) {
+      for (const h of data.hooks.catalog) {
+        const existing = hookScoreMap.get(h.hook_type) ?? 0
+        if (h.outlier_score > existing) hookScoreMap.set(h.hook_type, h.outlier_score)
+      }
+    }
+    if (data.hooks?.top_5) {
+      for (const h of data.hooks.top_5) {
+        const existing = hookScoreMap.get(h.hook_type) ?? 0
+        if (h.outlier_score > existing) hookScoreMap.set(h.hook_type, h.outlier_score)
+      }
+    }
+
+    // Hooks — use real scores from catalog
     if (data.hooks?.reusable_templates) {
       data.hooks.reusable_templates.forEach((template, i) => {
         allHooks.push({
@@ -77,7 +92,7 @@ export async function GET() {
           name: template.hook_type,
           type: template.hook_type,
           template: template.template,
-          outlier_score: 85, // Score par défaut si non disponible
+          outlier_score: hookScoreMap.get(template.hook_type) ?? (data.hooks?.top_5?.[0]?.outlier_score ?? 1),
           based_on: template.based_on,
         })
       })
@@ -111,13 +126,19 @@ export async function GET() {
     }
 
     if (data.topics?.outlier_topics) {
+      // Use the best outlier score from the analysis as baseline
+      const bestScore = data.hooks?.top_5?.[0]?.outlier_score
+        ?? data.script_structures?.detected_structures?.[0]?.avg_outlier_score
+        ?? 1
       data.topics.outlier_topics.forEach((topic) => {
+        const topicName = typeof topic === "string" ? topic : topic.topic
+        const bestTitle = typeof topic === "string" ? "" : (topic.best_video_title ?? "")
         allTopics.push({
-          name: topic,
+          name: topicName,
           category: "outlier",
           percentage: 0,
-          avg_outlier_score: 90,
-          example: "",
+          avg_outlier_score: bestScore,
+          example: bestTitle,
         })
       })
     }
@@ -128,33 +149,82 @@ export async function GET() {
     }
   }
 
-  // Dédupliquer et trier les hooks par score
-  const uniqueHooks = Array.from(
-    new Map(allHooks.map((h) => [h.template, h])).values()
-  )
-    .sort((a, b) => b.outlier_score - a.outlier_score)
-    .slice(0, 12) // Top 12 hooks
+  // Fetch persisted user templates
+  const { data: userTemplates } = await supabase
+    .from("user_templates")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("performance_score", { ascending: false })
+    .order("use_count", { ascending: false })
 
-  // Dédupliquer et trier les structures
-  const uniqueStructures = Array.from(
-    new Map(allStructures.map((s) => [s.name, s])).values()
-  )
-    .sort((a, b) => b.avg_outlier_score - a.avg_outlier_score)
-    .slice(0, 8) // Top 8 structures
+  // Merge persisted hooks with veille hooks
+  const persistedHooks = (userTemplates ?? [])
+    .filter(t => t.kind === "hook")
+    .map(t => ({
+      id: t.id,
+      name: t.name,
+      type: t.hook_type ?? t.name,
+      template: t.template,
+      outlier_score: t.performance_score ?? 0,
+      based_on: t.source,
+      use_count: t.use_count ?? 0,
+    }))
 
-  // Trier les sujets par performance
+  const persistedStructures = (userTemplates ?? [])
+    .filter(t => t.kind === "structure")
+    .map(t => ({
+      id: t.id,
+      name: t.name,
+      skeleton: t.skeleton ?? t.template,
+      frequency: t.use_count ?? 0,
+      avg_outlier_score: t.performance_score ?? 0,
+      example: t.description ?? "",
+    }))
+
+  // Merge: persisted first, then veille (deduped by template text)
+  const seenHookTemplates = new Set(persistedHooks.map(h => h.template))
+  for (const h of allHooks) {
+    if (!seenHookTemplates.has(h.template)) {
+      seenHookTemplates.add(h.template)
+      persistedHooks.push({ ...h, use_count: 0 })
+    }
+  }
+
+  const seenStructNames = new Set(persistedStructures.map(s => s.name))
+  for (const s of allStructures) {
+    if (!seenStructNames.has(s.name)) {
+      seenStructNames.add(s.name)
+      persistedStructures.push(s)
+    }
+  }
+
+  // Sort: by use_count DESC then performance_score DESC
+  const sortedHooks = persistedHooks
+    .sort((a, b) => {
+      const useA = (a as { use_count?: number }).use_count ?? 0
+      const useB = (b as { use_count?: number }).use_count ?? 0
+      if (useB !== useA) return useB - useA
+      return b.outlier_score - a.outlier_score
+    })
+
+  const sortedStructures = persistedStructures
+    .sort((a, b) => {
+      if (b.frequency !== a.frequency) return b.frequency - a.frequency
+      return b.avg_outlier_score - a.avg_outlier_score
+    })
+
   const topTopics = allTopics
     .sort((a, b) => {
       if (a.category === "outlier" && b.category !== "outlier") return -1
       if (a.category !== "outlier" && b.category === "outlier") return 1
       return b.avg_outlier_score - a.avg_outlier_score
     })
-    .slice(0, 15) // Top 15 sujets
+    .slice(0, 15)
 
   return NextResponse.json({
     hasAnalyses: true,
-    hooks: uniqueHooks,
-    structures: uniqueStructures,
+    hooks: sortedHooks,
+    structures: sortedStructures,
     topics: topTopics,
     positioning,
   })

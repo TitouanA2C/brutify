@@ -1,7 +1,8 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { Loading } from "@/components/ui/Loading";
 import { cn } from "@/lib/utils";
 
 export type ScrapeStatus = "idle" | "step1" | "step2" | "step3" | "done" | "error";
@@ -101,8 +102,10 @@ export function ScrapeStatusBlock({
                       {isDone ? (
                         <Check className="h-2.5 w-2.5 text-emerald-400" />
                       ) : isActive ? (
-                        <Loader2
-                          className="h-2.5 w-2.5 animate-spin"
+                        <Loading
+                          variant="icon"
+                          size="sm"
+                          className="h-2.5 w-2.5"
                           style={{ color: accentColor }}
                         />
                       ) : (

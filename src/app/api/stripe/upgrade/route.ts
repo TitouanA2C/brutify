@@ -77,8 +77,6 @@ export async function POST(request: Request) {
         },
       })
 
-      console.log("[Stripe Upgrade] DEV MODE: Redirecting to Checkout for upgrade (test sub)")
-
       return NextResponse.json({
         success: false,
         redirectUrl: session.url,
@@ -87,8 +85,6 @@ export async function POST(request: Request) {
     }
 
     // Downgrade avec abo test : pas de paiement, mise à jour DB uniquement
-    console.log("[Stripe Upgrade] DEV MODE: Downgrade with test sub, updating DB only")
-
     await supabase
       .from("profiles")
       .update({

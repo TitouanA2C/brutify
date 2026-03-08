@@ -153,6 +153,7 @@ export interface VideoDTO {
   thumbnailColor: string
   thumbnailUrl: string | null
   url: string | null
+  mediaUrl: string | null
 }
 
 export function toVideoDTO(row: DbVideo): VideoDTO {
@@ -174,6 +175,7 @@ export function toVideoDTO(row: DbVideo): VideoDTO {
     thumbnailColor: PLATFORM_COLORS[row.platform] ?? "#FFAB00",
     thumbnailUrl: row.thumbnail_url ?? null,
     url: row.url ?? null,
+    mediaUrl: (row as Record<string, unknown>).media_url as string | null ?? null,
   }
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useState, useMemo, useEffect, useRef } from "react";
+import { Suspense, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { VideoOff, ChevronDown, Users, ArrowUpDown, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -79,6 +80,8 @@ function feedItemToVideo(item: VideoFeedItemDTO): Video {
     duration: item.duration,
     thumbnailColor: item.thumbnailColor,
     thumbnailUrl: item.thumbnailUrl ?? null,
+    url: item.url ?? null,
+    mediaUrl: item.mediaUrl ?? null,
     hook: "",
     hookType: "Contrarian",
     structure: "",
@@ -112,6 +115,7 @@ function feedItemToCreatorMini(item: VideoFeedItemDTO) {
 function VideosPage() {
   const searchParams = useSearchParams();
   const creatorParam = searchParams.get("creator");
+  const router = useRouter();
 
   const [period, setPeriod] = useState<PeriodFilter>(creatorParam ? "0" : "30");
   const [outlierMin, setOutlierMin] = useState<OutlierFilter>("all");
@@ -121,6 +125,10 @@ function VideosPage() {
   const [page, setPage] = useState(1);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<{ name: string; handle: string; avatarUrl: string } | null>(null);
+
+  const handleForge = useCallback((video: Video) => {
+    router.push(`/scripts?source_video_id=${video.id}`);
+  }, [router]);
 
   const { creators: watchlistCreatorsDTO } = useWatchlist();
   const watchlistedCreators = watchlistCreatorsDTO.map((c) => ({
@@ -210,7 +218,7 @@ function VideosPage() {
               })),
             ]}
           />
-          <div className="ml-auto">
+          <div className="ml-auto w-full sm:w-auto">
             <CustomDropdown
               icon={<ArrowUpDown className="h-3.5 w-3.5" />}
               value={sortBy}
@@ -255,6 +263,7 @@ function VideosPage() {
                     setSelectedVideo(v);
                     setSelectedCreator(creatorMini ?? null);
                   }}
+                  onForge={handleForge}
                 />
               </motion.div>
             ))}
@@ -381,7 +390,7 @@ function CustomDropdown({
         )}
       >
         <span className="text-brutify-text-muted">{icon}</span>
-        <span className="max-w-[160px] truncate">{prefix ? `${prefix} : ${selected?.label}` : selected?.label}</span>
+        <span className="max-w-[100px] sm:max-w-[160px] truncate">{prefix ? `${prefix} : ${selected?.label}` : selected?.label}</span>
         <ChevronDown className={cn("h-3 w-3 text-brutify-text-muted transition-transform duration-200", open && "rotate-180")} />
       </button>
 
@@ -392,7 +401,7 @@ function CustomDropdown({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={{ duration: 0.18, ease: EASE_EXPO }}
-            className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] max-h-[280px] overflow-y-auto rounded-xl border border-white/[0.06] bg-[#111113]/95 backdrop-blur-md shadow-[0_12px_40px_rgba(0,0,0,0.6),0_0_20px_rgba(255,171,0,0.04)] overflow-hidden"
+            className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] max-w-[calc(100vw-2rem)] max-h-[280px] overflow-y-auto rounded-xl border border-white/[0.06] bg-[#111113]/95 backdrop-blur-md shadow-[0_12px_40px_rgba(0,0,0,0.6),0_0_20px_rgba(255,171,0,0.04)] overflow-hidden"
           >
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-px bg-gradient-to-r from-transparent via-brutify-gold/25 to-transparent" />
             <div className="py-1">

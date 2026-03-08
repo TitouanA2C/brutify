@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { analyzeVideo } from "@/lib/ai/claude"
 import { transcribeVideo } from "@/lib/ai/whisper"
 import { checkCredits, consumeCredits, COSTS } from "@/lib/credits"
 import { canUseFeature, getMinPlanForFeature } from "@/lib/plans"
 import { logApiUsage } from "@/lib/api-usage"
+import { resolveVideoFileUrl, isPlaceholderTranscript } from "@/lib/video-url-resolver"
 
 export async function POST(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
   const supabase = createClient()
+  const serviceSupabase = createServiceClient()
 
   const {
     data: { user },
@@ -40,13 +42,24 @@ export async function POST(
 
   const { data: video } = await supabase
     .from("videos")
-    .select("id, url, title")
+    .select("id, url, title, platform")
     .eq("id", params.id)
     .single()
 
   if (!video) {
     return NextResponse.json({ error: "Vidéo non trouvée" }, { status: 404 })
   }
+
+  // Essayer de lire media_url si la colonne existe
+  let mediaUrl: string | null = null
+  try {
+    const { data: videoExtra } = await serviceSupabase
+      .from("videos")
+      .select("media_url" as never)
+      .eq("id", params.id)
+      .single()
+    mediaUrl = (videoExtra as Record<string, unknown>)?.media_url as string | null
+  } catch { /* colonne pas encore créée */ }
 
   const { data: existingAnalysis } = await supabase
     .from("video_analyses")
@@ -69,6 +82,13 @@ export async function POST(
     .eq("video_id", params.id)
     .maybeSingle()
 
+  // Si la transcription existante est un placeholder, la supprimer
+  if (transcription && isPlaceholderTranscript(transcription.content)) {
+    console.log(`[Analyze] Suppression du faux transcript ${transcription.id} pour vidéo ${params.id}`)
+    await serviceSupabase.from("transcriptions").delete().eq("id", transcription.id)
+    transcription = null
+  }
+
   const needsTranscription = !transcription
   const totalCost = needsTranscription
     ? COSTS.analysis + COSTS.transcription
@@ -88,17 +108,32 @@ export async function POST(
   }
 
   if (needsTranscription) {
-    let transcriptContent: string
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: "Service de transcription non configuré (OPENAI_API_KEY manquante)." },
+        { status: 503 }
+      )
+    }
 
+    // Résoudre l'URL directe du fichier vidéo
+    let videoFileUrl = mediaUrl || null
+    if (!videoFileUrl && video.url) {
+      videoFileUrl = await resolveVideoFileUrl(video.url, video.platform)
+    }
+    if (!videoFileUrl) {
+      return NextResponse.json(
+        { error: "Impossible d'obtenir l'URL directe de la vidéo. Re-scrapez le créateur pour récupérer les URLs vidéo." },
+        { status: 400 }
+      )
+    }
+
+    let transcriptContent: string
     try {
-      if (process.env.OPENAI_API_KEY && video.url) {
-        transcriptContent = await transcribeVideo(video.url)
-      } else {
-        transcriptContent = generatePlaceholderTranscript(video.title)
-      }
+      transcriptContent = await transcribeVideo(videoFileUrl)
     } catch (err) {
       console.error("[Analyze → Transcribe]", err)
-      transcriptContent = generatePlaceholderTranscript(video.title)
+      const message = err instanceof Error ? err.message : "Erreur de transcription"
+      return NextResponse.json({ error: `Transcription échouée : ${message}` }, { status: 400 })
     }
 
     const consumed = await consumeCredits(
@@ -133,6 +168,14 @@ export async function POST(
     transcription = newTranscription
   }
 
+  // Analyse IA
+  if (!process.env.OPENROUTER_API_KEY) {
+    return NextResponse.json(
+      { error: "Service d'analyse non configuré (OPENROUTER_API_KEY manquante)." },
+      { status: 503 }
+    )
+  }
+
   let analysisResult: {
     hook_type: string
     hook_analysis: string
@@ -142,25 +185,21 @@ export async function POST(
   }
 
   try {
-    if (process.env.OPENROUTER_API_KEY) {
-      const { analysis, usage } = await analyzeVideo(transcription!.content)
-      analysisResult = analysis
-      // Logger l'usage Claude (fire-and-forget)
-      logApiUsage({
-        userId: user.id,
-        service: "openrouter",
-        action: "video_analysis",
-        model: usage.model,
-        tokensIn: usage.promptTokens,
-        tokensOut: usage.completionTokens,
-        referenceId: video.id,
-      }).catch(() => {})
-    } else {
-      analysisResult = generatePlaceholderAnalysis()
-    }
+    const { analysis, usage } = await analyzeVideo(transcription!.content)
+    analysisResult = analysis
+    logApiUsage({
+      userId: user.id,
+      service: "openrouter",
+      action: "video_analysis",
+      model: usage.model,
+      tokensIn: usage.promptTokens,
+      tokensOut: usage.completionTokens,
+      referenceId: video.id,
+    }).catch(() => {})
   } catch (err) {
     console.error("[Analyze]", err)
-    analysisResult = generatePlaceholderAnalysis()
+    const message = err instanceof Error ? err.message : "Erreur d'analyse"
+    return NextResponse.json({ error: `Analyse IA échouée : ${message}` }, { status: 400 })
   }
 
   const consumed = await consumeCredits(
@@ -200,44 +239,3 @@ export async function POST(
   })
 }
 
-function generatePlaceholderTranscript(title: string | null): string {
-  const t = title ?? "cette vidéo"
-  return [
-    `[Transcription automatique de "${t}"]`,
-    "",
-    "[0:00] — Hook",
-    "Salut ! Aujourd'hui on va parler d'un sujet qui va changer ta vision...",
-    "",
-    "[0:15] — Développement",
-    "Alors première chose importante à comprendre...",
-    "Les données montrent clairement que...",
-    "",
-    "[1:00] — Point clé",
-    "Ce que personne ne te dit, c'est que...",
-    "",
-    "[1:45] — CTA",
-    "Si cette vidéo t'a aidé, partage-la et abonne-toi !",
-  ].join("\n")
-}
-
-function generatePlaceholderAnalysis() {
-  return {
-    hook_type: "Contrarian",
-    hook_analysis: [
-      "Le hook utilise un pattern contrarian efficace qui crée une tension cognitive immédiate.",
-      "La première phrase contredit une croyance populaire, forçant le viewer à rester pour résoudre la dissonance.",
-      "Durée du hook estimée < 3 secondes — optimal pour la rétention TikTok/Reels.",
-    ].join("\n"),
-    structure_type: "Problème/Solution",
-    structure_analysis: [
-      "Structure narrative en 4 actes détectée : Hook → Problème → Développement → CTA.",
-      "La progression maintient une escalade d'intensité bien calibrée.",
-      "Le CTA est positionné au moment optimal de pic émotionnel.",
-    ].join("\n"),
-    style_analysis: [
-      "Ton conversationnel et direct — adapté à la cible 18-34 ans.",
-      "Utilisation fréquente de chiffres concrets pour ancrer la crédibilité.",
-      "Rythme soutenu avec des phrases courtes — bon pour le format court.",
-    ].join("\n"),
-  }
-}

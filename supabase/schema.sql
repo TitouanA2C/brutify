@@ -168,6 +168,9 @@ CREATE TABLE public.board_items (
   source_video_id UUID REFERENCES public.videos(id) ON DELETE SET NULL,
   notes TEXT,
   position INTEGER DEFAULT 0,
+  shoot_date DATE,
+  edit_date DATE,
+  publish_date DATE,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -184,12 +187,13 @@ CREATE INDEX idx_board_date ON public.board_items(user_id, scheduled_date);
 CREATE TABLE public.vault_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('video', 'script', 'manual')),
+  type TEXT NOT NULL CHECK (type IN ('video', 'script', 'manual', 'ai', 'idea')),
   content TEXT NOT NULL,
   source_handle TEXT,
   source_video_id UUID REFERENCES public.videos(id) ON DELETE SET NULL,
   source_script_id UUID REFERENCES public.scripts(id) ON DELETE SET NULL,
   tags TEXT[] DEFAULT '{}',
+  metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -197,7 +201,45 @@ CREATE INDEX idx_vault_user ON public.vault_items(user_id);
 
 
 -- =============================================
--- HOOK & STRUCTURE TEMPLATES (référentiel)
+-- USER TEMPLATES (hooks & structures persistés)
+-- =============================================
+
+CREATE TABLE IF NOT EXISTS public.user_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('hook', 'structure')),
+  name TEXT NOT NULL,
+  template TEXT NOT NULL,
+  hook_type TEXT,
+  skeleton TEXT,
+  description TEXT,
+  source TEXT NOT NULL CHECK (source IN ('video', 'veille', 'manual')),
+  source_id TEXT,
+  performance_score REAL DEFAULT 0,
+  use_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_templates_user ON public.user_templates(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_templates_kind ON public.user_templates(user_id, kind);
+CREATE INDEX IF NOT EXISTS idx_user_templates_ranking ON public.user_templates(user_id, kind, performance_score DESC, use_count DESC);
+
+ALTER TABLE public.user_templates ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own templates" ON public.user_templates
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE OR REPLACE FUNCTION public.increment_template_use(tid UUID, uid UUID)
+RETURNS void LANGUAGE sql SECURITY DEFINER AS $$
+  UPDATE public.user_templates
+  SET use_count = COALESCE(use_count, 0) + 1, updated_at = now()
+  WHERE id = tid AND user_id = uid;
+$$;
+
+
+-- =============================================
+-- HOOK & STRUCTURE TEMPLATES (référentiel legacy)
 -- =============================================
 
 CREATE TABLE public.hook_templates (

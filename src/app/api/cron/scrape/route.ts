@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization")
   const cronSecret = process.env.CRON_SECRET
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   }
 
@@ -132,13 +132,13 @@ export async function GET(request: Request) {
         // Auto-transcription pour les utilisateurs Growth/Scale qui suivent ce créateur
         if (videoId) {
           const { data: watchers } = await supabase
-            .from("watchlist")
+            .from("watchlists")
             .select("user_id, profiles!inner(plan)")
             .eq("creator_id", creator.id)
 
           if (watchers) {
             for (const watcher of watchers) {
-              const userPlan = (watcher as any).profiles?.plan ?? "creator"
+              const userPlan = (watcher as unknown as { profiles: { plan: string } | null }).profiles?.plan ?? "creator"
               if (userPlan === "growth" || userPlan === "scale") {
                 await autoTranscribeIfEligible({
                   videoId,
@@ -159,9 +159,6 @@ export async function GET(request: Request) {
         videos: validVideos.length,
       })
 
-      console.log(
-        `[Cron Scrape] @${creator.handle}: ${validVideos.length} vidéos scrapées (${scoredVideos.length - validVideos.length} filtrées)`
-      )
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Erreur inconnue"

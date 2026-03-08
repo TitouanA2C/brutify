@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import useSWR from "swr"
 
 // ─── List all scripts ────────────────────────────────────────────────────────
@@ -205,6 +205,10 @@ export function useGenerateScript() {
   const abort = useCallback(() => {
     abortRef.current?.abort()
     setIsGenerating(false)
+  }, [])
+
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
   }, [])
 
   return { generate, abort, isGenerating, streamedText, error }

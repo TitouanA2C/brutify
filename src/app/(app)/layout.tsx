@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { Menu, Sparkles } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AuroraBackground } from "@/components/layout/AuroraBackground";
@@ -8,6 +8,12 @@ import { CreditsProvider } from "@/lib/credits-context";
 
 import { CreditsToastWrapper } from "@/components/notifications/CreditsToastWrapper";
 import { UpsellProvider } from "@/components/upsell/UpsellProvider";
+
+function SidebarFallback() {
+  return (
+    <div className="fixed left-0 top-0 z-40 h-full w-[260px] border-r border-white/[0.06] bg-brutify-bg/95 backdrop-blur-xl hidden md:block" />
+  );
+}
 
 export default function AppLayout({
   children,
@@ -20,10 +26,12 @@ export default function AppLayout({
     <CreditsProvider>
       <UpsellProvider>
         <AuroraBackground />
-        <Sidebar
-          mobileOpen={mobileMenuOpen}
-          onMobileClose={() => setMobileMenuOpen(false)}
-        />
+        <Suspense fallback={<SidebarFallback />}>
+          <Sidebar
+            mobileOpen={mobileMenuOpen}
+            onMobileClose={() => setMobileMenuOpen(false)}
+          />
+        </Suspense>
         <div className="md:pl-[260px] min-h-screen relative z-10">
           {/* Mobile-only header — hamburger + logo */}
           <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/[0.06] bg-brutify-bg/60 backdrop-blur-xl px-4 md:hidden">

@@ -55,6 +55,15 @@ export interface UpcomingBoardItem {
   date: string
 }
 
+export interface NetworkOutlierPreview {
+  id: string
+  title: string
+  thumbnail_url: string | null
+  outlier_score: number
+  views: number
+  posted_at: string
+}
+
 export interface NetworkStat {
   platform: string
   handle: string
@@ -64,6 +73,10 @@ export interface NetworkStat {
   growth_rate: number
   total_views: number
   scraped_videos: number
+  /** Somme réelle des vues des vidéos scrapées */
+  total_impressions: number
+  /** Derniers outliers (vidéos qui performent) sur ce compte */
+  last_outliers: NetworkOutlierPreview[]
 }
 
 export async function GET() {
@@ -229,6 +242,30 @@ export async function GET() {
       .select("id", { count: "exact", head: true })
       .eq("creator_id", creator.id)
 
+    const { data: viewsAgg } = await supabase
+      .from("videos")
+      .select("views")
+      .eq("creator_id", creator.id)
+
+    const totalImpressions = (viewsAgg ?? []).reduce((sum, v) => sum + (Number(v.views) || 0), 0)
+
+    const { data: lastOutliersData } = await supabase
+      .from("videos")
+      .select("id, title, thumbnail_url, outlier_score, views, posted_at")
+      .eq("creator_id", creator.id)
+      .gte("outlier_score", 3)
+      .order("posted_at", { ascending: false })
+      .limit(5)
+
+    const lastOutliers: NetworkOutlierPreview[] = (lastOutliersData ?? []).map((v) => ({
+      id: v.id,
+      title: v.title ?? "",
+      thumbnail_url: v.thumbnail_url,
+      outlier_score: v.outlier_score ?? 0,
+      views: v.views ?? 0,
+      posted_at: v.posted_at ?? "",
+    }))
+
     const avgViews = creator.avg_views ?? 0
     const postsCount = creator.posts_count ?? 0
     const estimatedTotalViews = Math.round(avgViews * postsCount)
@@ -242,6 +279,8 @@ export async function GET() {
       growth_rate: creator.growth_rate ?? 0,
       total_views: estimatedTotalViews,
       scraped_videos: videosCount ?? 0,
+      total_impressions: totalImpressions,
+      last_outliers: lastOutliers,
     })
   }
 

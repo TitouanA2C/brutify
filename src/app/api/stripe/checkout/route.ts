@@ -84,8 +84,6 @@ export async function POST(request: Request) {
         })
         .eq("id", user.id)
 
-      console.log(`[Stripe] Subscription ${profile.stripe_subscription_id} updated to plan ${body.plan}`)
-
       // Rediriger vers les paramètres avec un message de succès
       return NextResponse.json({ 
         url: `${request.headers.get("origin")}/settings?plan_changed=true&new_plan=${body.plan}`,

@@ -1107,7 +1107,7 @@ function HowItWorks() {
                         </div>
                       )}
                       {activeStep === 1 && (
-                        <div className="grid grid-cols-3 gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                           {[
                             { score: 35.7, views: "3.4M", gradient: "from-purple-900/60 via-pink-900/40 to-orange-900/30" },
                             { score: 12.4, views: "1.8M", gradient: "from-blue-900/60 via-purple-900/40 to-pink-900/30" },
@@ -1570,7 +1570,7 @@ const floatingCards = [
         </div>
         
         {/* Stats grid */}
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
           <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] px-2 py-1.5 text-center">
             <p className="text-xs font-display text-white/90">156</p>
             <p className="text-[7px] text-brutify-text-muted">vidéos</p>
@@ -1663,7 +1663,7 @@ const floatingCards = [
         </div>
         
         {/* Grille de vidéos avec vrais détails */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           {[
             { score: "35.7x", views: "2.1M", gradient: "from-purple-900/70 to-pink-900/50", color: "#E1306C" },
             { score: "28.4x", views: "890K", gradient: "from-red-900/70 to-orange-900/50", color: "#FF0000" },
@@ -1961,7 +1961,7 @@ function TestimonialCard({ t }: { t: typeof testimonialsRow1[0] }) {
   const hasAvatar = t.avatar !== null;
 
   return (
-    <div className="flex-shrink-0 w-[340px] rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[#111113]/80 to-[#0d0d12]/60 backdrop-blur-sm p-6 select-none hover:border-white/[0.1] transition-all duration-300 group/card relative overflow-hidden">
+    <div className="flex-shrink-0 w-[280px] sm:w-[340px] rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[#111113]/80 to-[#0d0d12]/60 backdrop-blur-sm p-6 select-none hover:border-white/[0.1] transition-all duration-300 group/card relative overflow-hidden">
       {/* Subtle gold glow on hover */}
       <div className="absolute inset-0 bg-brutify-gold/0 group-hover/card:bg-brutify-gold/[0.02] rounded-2xl transition-all duration-500 pointer-events-none" />
       
@@ -2371,7 +2371,7 @@ function FAQ() {
               transition={{ duration: 0.6, delay: 0.3 }}
             >
               <Link
-                href="#"
+                href="mailto:contact@brutify.app"
                 className="group inline-flex items-center gap-2 rounded-xl border border-brutify-gold/20 bg-brutify-gold/[0.04] px-5 py-3 text-sm font-body font-semibold text-brutify-gold hover:bg-brutify-gold/[0.08] hover:border-brutify-gold/30 transition-all duration-300"
               >
                 Contacte-nous

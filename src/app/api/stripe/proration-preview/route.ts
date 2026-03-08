@@ -41,8 +41,6 @@ export async function POST(request: Request) {
   const isTestSubscription = profile.stripe_subscription_id.startsWith("sub_test_")
 
   if (isTestSubscription && process.env.NODE_ENV === "development") {
-    console.log("[Proration Preview] DEV MODE: Returning fake proration data")
-    
     // Retourner des montants fictifs pour la preview
     const monthlyPrice = body.interval === "year" 
       ? planConfig.yearlyPriceId 

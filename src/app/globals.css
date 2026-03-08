@@ -149,6 +149,26 @@ body {
   50% { opacity: 0.08; }
 }
 
+/* Brutify loading spinner (ring + glow) */
+@keyframes brutify-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes brutify-spin-glow {
+  0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 6px rgba(255, 171, 0, 0.4)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 12px rgba(255, 171, 0, 0.7)); }
+}
+/* Bouncing dots for inline / minimal loader */
+@keyframes brutify-bounce {
+  0%, 80%, 100% { transform: scale(0.75); opacity: 0.5; }
+  40% { transform: scale(1.1); opacity: 1; }
+}
+
+.brutify-loading-dots span {
+  animation: brutify-bounce 0.6s ease-in-out infinite both;
+}
+.brutify-loading-dots span:nth-child(2) { animation-delay: 0.1s; }
+.brutify-loading-dots span:nth-child(3) { animation-delay: 0.2s; }
+
 @layer base {
   ::selection {
     background: rgba(255, 171, 0, 0.3);
@@ -484,6 +504,14 @@ body {
 .brutify-scrollbar {
   scrollbar-width: auto;
   scrollbar-color: rgba(255, 171, 0, 0.7) rgba(17, 17, 19, 0.6);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* Skeleton shimmer animation */

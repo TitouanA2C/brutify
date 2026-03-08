@@ -9,9 +9,9 @@ import {
   VolumeX,
   Maximize,
   Minimize,
-  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Loading } from "@/components/ui/Loading";
 
 interface VideoPlayerProps {
   src: string;
@@ -301,10 +301,7 @@ export function VideoPlayer({
               
               {/* Card */}
               <div className="relative flex items-center gap-3 rounded-2xl border border-brutify-gold/30 bg-gradient-to-br from-[#1a1400]/95 to-[#0d0a00]/95 backdrop-blur-xl px-6 py-4 shadow-[0_0_40px_rgba(255,171,0,0.3),0_12px_32px_rgba(0,0,0,0.8)]">
-                <Loader2 className="h-5 w-5 animate-spin text-brutify-gold drop-shadow-[0_0_8px_rgba(255,171,0,0.6)]" />
-                <span className="text-sm font-body font-semibold text-brutify-gold-light drop-shadow-[0_0_4px_rgba(255,215,0,0.4)]">
-                  Chargement...
-                </span>
+                <Loading variant="block" size="md" label="Chargement..." />
               </div>
             </div>
           </motion.div>

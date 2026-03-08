@@ -28,7 +28,7 @@ async function processAndSave(
 
   for (const v of scored) {
     const platform_video_id = String(v.platform_video_id).slice(0, 255)
-    await supabase.from("videos").upsert({
+    const upsertPayload: Record<string, unknown> = {
       creator_id: creator.id,
       platform: "instagram" as const,
       platform_video_id,
@@ -44,7 +44,12 @@ async function processAndSave(
       outlier_score: v.outlier_score,
       posted_at: v.posted_at,
       scraped_at: new Date().toISOString(),
-    }, { onConflict: "platform,platform_video_id", ignoreDuplicates: false })
+    }
+    if (v.media_url) upsertPayload.media_url = v.media_url
+    await supabase.from("videos").upsert(
+      upsertPayload as never,
+      { onConflict: "platform,platform_video_id", ignoreDuplicates: false }
+    )
   }
 
   const { data: videos } = await supabase
@@ -122,8 +127,6 @@ export async function GET(
   }
 
   const { scored, videos } = await processAndSave(supabase, runInfo.datasetId, creator)
-  console.log(`[Scrape Status] @${creator.handle} → ${scored.length} posts finalisés`)
-
   // Update creator stats on completion
   if (scored.length > 0) {
     const avgViews = computeAvgViews(scored.map(v => ({ ...v, outlier_score: v.outlier_score ?? 0 })))

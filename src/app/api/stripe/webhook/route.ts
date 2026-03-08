@@ -13,19 +13,19 @@ export async function POST(request: Request) {
   // ⚠️ EN DEV : Skip la vérification de signature pour tester localement
   // En prod, Vercel recevra les vrais webhooks signés de Stripe
   if (process.env.NODE_ENV === "development" && !sig) {
-    console.log("[Stripe Webhook] Dev mode: skipping signature verification")
     event = JSON.parse(body) as Stripe.Event
   } else {
     if (!sig) {
       return NextResponse.json({ error: "Signature manquante" }, { status: 400 })
     }
 
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+    if (!webhookSecret) {
+      return NextResponse.json({ error: "Webhook secret non configuré" }, { status: 500 })
+    }
+
     try {
-      event = stripe.webhooks.constructEvent(
-        body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET!
-      )
+      event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Signature invalide"
       console.error("[Stripe Webhook] Verification failed:", message)
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       }
 
       default:
-        console.log(`[Stripe Webhook] Unhandled event: ${event.type}`)
+        break
     }
   } catch (err) {
     console.error(`[Stripe Webhook] Error handling ${event.type}:`, err)
@@ -167,9 +167,6 @@ async function handleSubscriptionCreated(
     })
   }
 
-  console.log(
-    `[Stripe Webhook] User ${userId} subscribed to ${plan.key} (${plan.config.credits} credits${earlyUpgradeBonus > 0 ? ` + ${earlyUpgradeBonus} early upgrade bonus` : ""})`
-  )
 }
 
 async function handleMonthlyReset(
@@ -253,9 +250,6 @@ async function handleMonthlyReset(
     })
   }
 
-  console.log(
-    `[Stripe Webhook] Monthly reset for ${userId}: ${plan.config.credits} credits + ${rolloverAmount} rollover - ${borrowedCredits} borrowed = ${newCredits} final`
-  )
 }
 
 async function handleSubscriptionUpdated(
@@ -296,9 +290,6 @@ async function handleSubscriptionUpdated(
     reference_id: subscription.id,
   })
 
-  console.log(
-    `[Stripe Webhook] Plan updated for ${userId}: ${profile?.plan} → ${plan.key}`
-  )
 }
 
 async function handleSubscriptionDeleted(
@@ -318,9 +309,6 @@ async function handleSubscriptionDeleted(
     })
     .eq("id", userId)
 
-  console.log(
-    `[Stripe Webhook] Subscription canceled for ${userId}: downgraded to creator with 0 credits`
-  )
 }
 
 async function handleCreditPurchase(
@@ -356,7 +344,4 @@ async function handleCreditPurchase(
     reference_id: session.id,
   })
 
-  console.log(
-    `[Stripe Webhook] ${userId} purchased ${amount} credits (total: ${newCredits})`
-  )
 }

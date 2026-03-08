@@ -30,6 +30,9 @@ export async function PATCH(
     "source_video_id",
     "notes",
     "position",
+    "shoot_date",
+    "edit_date",
+    "publish_date",
   ] as const
 
   const updates: Record<string, unknown> = {}

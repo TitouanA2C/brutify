@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { AlertTriangle, X, Zap, TrendingDown, Loader2, RefreshCcw, Sparkles } from "lucide-react"
+import { AlertTriangle, X, Zap, TrendingDown, RefreshCcw, Sparkles } from "lucide-react"
+import { Loading } from "@/components/ui/Loading"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
@@ -212,7 +213,7 @@ export function CreditsAlert({
                         className="flex-1 rounded-lg bg-brutify-gold/10 border border-brutify-gold/30 px-3 py-2 text-xs font-body font-bold text-brutify-gold hover:bg-brutify-gold/20 hover:border-brutify-gold/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {borrowing ? (
-                          <Loader2 className="h-3 w-3 animate-spin mx-auto" />
+                          <Loading variant="icon" size="sm" className="h-3 w-3 mx-auto" />
                         ) : (
                           `${amt} BP`
                         )}

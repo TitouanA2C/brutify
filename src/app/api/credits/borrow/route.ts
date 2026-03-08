@@ -16,9 +16,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    const { amount } = await request.json()
+    let body: Record<string, unknown>
+    try { body = await request.json() } catch { return NextResponse.json({ error: "Body invalide" }, { status: 400 }) }
+    const amount = typeof body.amount === "number" ? body.amount : Number(body.amount)
 
-    if (!amount || typeof amount !== "number" || amount <= 0) {
+    if (!amount || !Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json(
         { error: "Montant invalide" },
         { status: 400 }
@@ -107,10 +109,6 @@ export async function POST(request: Request) {
       action: "borrow",
       reference_id: `borrow_${Date.now()}`,
     })
-
-    console.log(
-      `[Borrow] User ${user.id} borrowed ${amount} BP (total borrowed: ${newBorrowed}/${maxBorrowable})`
-    )
 
     return NextResponse.json({
       success: true,

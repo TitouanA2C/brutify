@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { FileText, Loader2, Sparkles, Check } from "lucide-react"
+import { FileText, Sparkles, Check } from "lucide-react"
+import { Loading } from "@/components/ui/Loading"
 import { cn } from "@/lib/utils"
 import { useUser } from "@/hooks/useUser"
 import { FREE_TRANSCRIPTS_LIMITS } from "@/lib/credits-rules"
@@ -75,7 +76,7 @@ export function TranscriptButton({ videoId, hasTranscript, onTranscribed }: Tran
       >
         {loading ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loading variant="icon" size="sm" className="h-4 w-4" />
             Transcription...
           </>
         ) : hasFreeTranscript ? (

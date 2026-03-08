@@ -13,7 +13,6 @@ import {
   Check,
   X,
   ExternalLink,
-  Loader2,
   Sparkles,
   Bell,
   Shield,
@@ -48,6 +47,7 @@ import type { ScrapeState, SocialPlatform } from "@/components/settings/ScrapeSt
 import { SocialHandleField } from "@/components/settings/SocialHandleField";
 import { PricingSection } from "@/components/settings/PricingSection";
 import { RetentionModal } from "@/components/retention/RetentionModal";
+import { Loading } from "@/components/ui/Loading";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -191,8 +191,9 @@ function SettingsPageContent() {
     }
   }, [searchParams, refreshProfile]);
 
-  // 🧪 DEV ONLY : Créditer les BP après un achat (workaround pour webhooks locaux)
+  // Dev credit — guarded to development only
   useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
     const devCredit = searchParams.get("dev_credit");
     const amount = searchParams.get("amount");
     
@@ -204,15 +205,12 @@ function SettingsPageContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ amount: creditAmount }),
         })
-          .then(() => {
-            console.log(`[DEV] Crédité ${creditAmount} BP`);
-            refreshProfile();
-          })
-          .catch((err) => console.error("Dev credit error:", err));
+          .then(() => refreshProfile())
+          .catch(() => {});
         
-        // Nettoyer l'URL
         const url = new URL(window.location.href);
         url.searchParams.delete("dev_credit");
+        url.searchParams.delete("amount");
         window.history.replaceState({}, "", url.toString());
       }
     }
@@ -432,7 +430,7 @@ function SettingsPageContent() {
       />
 
       {/* ── Tabs ── */}
-      <div className="flex gap-2 mb-8 p-1 rounded-xl bg-white/[0.02] border border-white/[0.04] w-fit mx-auto">
+      <div className="flex gap-2 mb-8 p-1 rounded-xl bg-white/[0.02] border border-white/[0.04] w-fit mx-auto overflow-x-auto pb-2">
         {([
           { key: "profil"      as Tab, icon: <User className="h-3.5 w-3.5" />,       label: "Profil" },
           { key: "abonnement"  as Tab, icon: <CreditCard className="h-3.5 w-3.5" />, label: "Abonnement" },
@@ -476,7 +474,7 @@ function SettingsPageContent() {
             }}
           />
 
-          <div className="relative flex items-start justify-between mb-6">
+          <div className="relative flex flex-col sm:flex-row items-start justify-between gap-4 mb-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <CreditCard className="h-5 w-5 text-brutify-gold" />
@@ -498,7 +496,7 @@ function SettingsPageContent() {
                     className="inline-flex items-center gap-1 text-xs font-body text-brutify-text-muted hover:text-brutify-gold transition-colors cursor-pointer"
                   >
                     {loadingPortal ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <Loading variant="icon" size="sm" className="shrink-0" />
                     ) : (
                       <ExternalLink className="h-3 w-3" />
                     )}
@@ -508,7 +506,7 @@ function SettingsPageContent() {
               </div>
             </div>
             <div className="text-right">
-              <GoldText as="p" className="font-display text-5xl">
+              <GoldText as="p" className="font-display text-3xl sm:text-5xl">
                 {displayCredits}
               </GoldText>
               <p className="text-xs font-body text-brutify-text-muted mt-0.5">
@@ -532,7 +530,7 @@ function SettingsPageContent() {
             </p>
           </div>
 
-          <div className="relative mt-4 grid grid-cols-3 gap-3">
+          <div className="relative mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { icon: <ScrollText className="h-4 w-4" />, label: "Forger un script", cost: "2 BP" },
               { icon: <FileText className="h-4 w-4" />, label: "Transcrire", cost: "3 BP" },
@@ -603,7 +601,7 @@ function SettingsPageContent() {
                     disabled={loadingPlan !== null}
                   >
                     {loadingPlan === "growth" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <Loading variant="icon" size="sm" className="shrink-0" />
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5" />
                     )}
@@ -692,12 +690,7 @@ function SettingsPageContent() {
                 {/* Montant à payer maintenant */}
                 <div className="border-t border-white/[0.05] pt-3">
                   {upgradeModal.loadingPreview ? (
-                    <div className="flex items-center gap-2 justify-center">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-brutify-text-muted" />
-                      <span className="text-xs font-body text-brutify-text-muted">
-                        Calcul du montant proraté…
-                      </span>
-                    </div>
+                    <Loading variant="inline" label="Calcul du montant proraté…" className="justify-center py-2" />
                   ) : upgradeModal.prorationAmount !== null ? (
                     <div className="flex items-center justify-between">
                       <div>
@@ -797,7 +790,7 @@ function SettingsPageContent() {
                   disabled={!!loadingPlan || upgradeModal.loadingPreview}
                 >
                   {loadingPlan ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loading variant="icon" size="sm" className="shrink-0" />
                   ) : (
                     <Check className="h-3.5 w-3.5" />
                   )}
@@ -837,7 +830,7 @@ function SettingsPageContent() {
           <div className="divide-y divide-white/[0.04]">
             {historyLoading ? (
               <div className="px-5 py-8 flex justify-center">
-                <Loader2 className="h-5 w-5 animate-spin text-brutify-text-muted" />
+                <Loading variant="block" size="md" />
               </div>
             ) : history.length === 0 ? (
               <div className="px-5 py-8 text-center">
@@ -894,15 +887,10 @@ function SettingsPageContent() {
             <Bell className="h-4 w-4 text-brutify-gold" />
             <h3 className="font-display text-sm uppercase tracking-widest text-brutify-text-primary">Notifications</h3>
           </div>
-          <div className="divide-y divide-white/[0.04]">
-            {[
-              { label: "Scraping terminé", desc: "Quand l'analyse d'un créateur est complète", defaultOn: true },
-              { label: "Nouvel outlier détecté", desc: "Quand une vidéo dépasse 5x la moyenne", defaultOn: true },
-              { label: "Croissance notable", desc: "Quand un créateur progresse significativement", defaultOn: false },
-              { label: "Scripts générés", desc: "Confirmation après chaque génération", defaultOn: false },
-            ].map((item) => (
-              <NotifToggle key={item.label} {...item} />
-            ))}
+          <div className="px-6 py-5">
+            <p className="text-sm font-body text-brutify-text-muted">
+              Les préférences de notifications arrivent bientôt. Tu recevras toutes les notifications importantes par défaut.
+            </p>
           </div>
         </div>
 
@@ -937,7 +925,19 @@ function SettingsPageContent() {
                 <p className="text-sm font-body font-medium text-brutify-text-primary">Supprimer mon compte</p>
                 <p className="text-[11px] font-body text-brutify-text-muted mt-0.5">Action irréversible — toutes tes données seront effacées</p>
               </div>
-              <button className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2 text-xs font-body font-semibold text-red-400 hover:bg-red-500/[0.12] transition-all cursor-pointer">
+              <button
+                onClick={() => {
+                  if (window.confirm("Es-tu sûr de vouloir supprimer ton compte ? Cette action est irréversible.")) {
+                    fetch("/api/profile", { method: "DELETE" })
+                      .then(res => {
+                        if (res.ok) window.location.href = "/login";
+                        else alert("Erreur lors de la suppression. Contacte le support.");
+                      })
+                      .catch(() => alert("Erreur réseau. Réessaie."));
+                  }
+                }}
+                className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2 text-xs font-body font-semibold text-red-400 hover:bg-red-500/[0.12] transition-all cursor-pointer"
+              >
                 Supprimer
               </button>
             </div>
@@ -990,7 +990,7 @@ function InlineField({
             className="flex-1 rounded-xl border-2 border-brutify-gold/30 bg-white/[0.03] px-3 py-2 text-sm font-body text-brutify-text-primary outline-none focus:border-brutify-gold/50 focus:shadow-[0_0_20px_rgba(255,171,0,0.15)] transition-all"
             placeholder={placeholder} />
           <button onClick={save} disabled={saving} className="flex h-8 w-8 items-center justify-center rounded-lg bg-brutify-gold/10 border border-brutify-gold/20 text-brutify-gold hover:bg-brutify-gold/20 transition-all cursor-pointer">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            {saving ? <Loading variant="icon" size="sm" className="shrink-0" /> : <Check className="h-3.5 w-3.5" />}
           </button>
           <button onClick={() => { setDraft(value); setEditing(false); }} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] text-brutify-text-muted hover:border-white/[0.12] transition-all cursor-pointer">
             <X className="h-3.5 w-3.5" />
@@ -1109,7 +1109,7 @@ function ProfileTab() {
     ? new Date(profileData.created_at).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
     : "—";
 
-  if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-brutify-gold" /></div>;
+  if (loading) return <Loading variant="page" size="md" className="py-16" />;
 
   return (
     <motion.div key="profil" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-6 max-w-4xl mx-auto">
@@ -1292,11 +1292,10 @@ function ProfileHubCard({
             >
               <SocialAvatar src={avatarUrl} initials={initials} size={90} />
             </div>
-            {/* Platform badge */}
+            {/* Platform badge — or monochrome style Brutify */}
             {igNetwork && (
               <div
-                className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-full flex items-center justify-center border-2 border-[#111113]"
-                style={{ background: "#E1306C", color: "#fff" }}
+                className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-full flex items-center justify-center border-2 border-[#111113] bg-brutify-gold/20 text-brutify-gold shadow-[0_0_12px_rgba(255,171,0,0.25)]"
                 title="Instagram"
               >
                 <Instagram className="h-3 w-3" />
@@ -1332,7 +1331,7 @@ function ProfileHubCard({
         <p className="text-[10px] font-body font-semibold uppercase tracking-widest text-brutify-gold/50 mb-3">
           Activité Brutify
         </p>
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           {brutifyMetrics.map(m => (
             <div key={m.label}
               className="rounded-xl border-2 border-brutify-gold/15 bg-brutify-gold/[0.05] p-3 text-center group hover:border-brutify-gold/30 hover:bg-brutify-gold/[0.08] hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(255,171,0,0.15)] transition-all duration-300"
@@ -1386,7 +1385,7 @@ function ProfileHubCard({
             {/* Metrics grid */}
             <AnimatePresence mode="wait">
               <motion.div key={activeNet} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-                className="grid grid-cols-4 gap-2"
+                className="grid grid-cols-2 sm:grid-cols-4 gap-2"
               >
                 {netMetrics.map(m => (
                   <div key={m.label}
@@ -1463,30 +1462,6 @@ function fmt(n: number): string {
 }
 
 
-function NotifToggle({ label, desc, defaultOn }: { label: string; desc: string; defaultOn: boolean }) {
-  const [on, setOn] = useState(defaultOn);
-  return (
-    <div className="flex items-center justify-between px-6 py-3.5 border-b border-white/[0.06] bg-white/[0.02] backdrop-blur-sm hover:bg-white/[0.03] transition-colors">
-      <div>
-        <p className="text-sm font-body font-medium text-brutify-text-primary">{label}</p>
-        <p className="text-[11px] font-body text-brutify-text-muted mt-0.5">{desc}</p>
-      </div>
-      <button
-        onClick={() => setOn(!on)}
-        className={cn(
-          "relative h-6 w-11 rounded-full border transition-all duration-200 cursor-pointer shrink-0",
-          on ? "bg-brutify-gold/20 border-brutify-gold/30 shadow-[0_0_10px_rgba(255,171,0,0.15)]" : "bg-white/[0.04] border-white/[0.08]"
-        )}
-      >
-        <span className={cn(
-          "absolute top-0.5 h-5 w-5 rounded-full transition-all duration-200",
-          on ? "left-[calc(100%-22px)] bg-brutify-gold shadow-[0_0_8px_rgba(255,171,0,0.4)]" : "left-0.5 bg-white/20"
-        )} />
-      </button>
-    </div>
-  );
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function planOrder(plan: PlanKey): number {
@@ -1522,7 +1497,7 @@ export default function SettingsPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-brutify-gold" />
+        <Loading variant="page" size="lg" />
       </div>
     }>
       <SettingsPageContent />

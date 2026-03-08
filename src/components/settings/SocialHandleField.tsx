@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, ExternalLink, Edit3, Trash2, Loader2 } from "lucide-react";
+import { Check, X, ExternalLink, Edit3, Trash2 } from "lucide-react";
+import { Loading } from "@/components/ui/Loading";
 
 interface SocialHandleFieldProps {
   icon: React.ReactNode;
@@ -105,7 +106,7 @@ export function SocialHandleField({
                 disabled={saving || !draft.trim()}
                 className="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center bg-brutify-gold/10 border border-brutify-gold/20 text-brutify-gold hover:bg-brutify-gold/20 transition-colors disabled:opacity-30"
               >
-                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                {saving ? <Loading variant="icon" size="sm" className="h-3 w-3" /> : <Check className="h-3 w-3" />}
               </button>
               <button
                 onClick={() => { setEditing(false); setDraft(value); }}
@@ -185,7 +186,7 @@ export function SocialHandleField({
                   className="px-3 py-1 rounded-lg text-[11px] font-body font-semibold border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {unlinking ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <Loading variant="icon" size="sm" className="h-3 w-3" />
                   ) : (
                     <Trash2 className="h-3 w-3" />
                   )}

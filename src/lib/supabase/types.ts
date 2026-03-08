@@ -516,6 +516,9 @@ export type Database = {
           source_video_id: string | null
           notes: string | null
           position: number | null
+          shoot_date: string | null
+          edit_date: string | null
+          publish_date: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -530,6 +533,9 @@ export type Database = {
           source_video_id?: string | null
           notes?: string | null
           position?: number | null
+          shoot_date?: string | null
+          edit_date?: string | null
+          publish_date?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -544,12 +550,74 @@ export type Database = {
           source_video_id?: string | null
           notes?: string | null
           position?: number | null
+          shoot_date?: string | null
+          edit_date?: string | null
+          publish_date?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "board_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_templates: {
+        Row: {
+          id: string
+          user_id: string
+          kind: string
+          name: string
+          template: string
+          hook_type: string | null
+          skeleton: string | null
+          description: string | null
+          source: string
+          source_id: string | null
+          performance_score: number | null
+          use_count: number | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          kind: string
+          name: string
+          template: string
+          hook_type?: string | null
+          skeleton?: string | null
+          description?: string | null
+          source: string
+          source_id?: string | null
+          performance_score?: number | null
+          use_count?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          kind?: string
+          name?: string
+          template?: string
+          hook_type?: string | null
+          skeleton?: string | null
+          description?: string | null
+          source?: string
+          source_id?: string | null
+          performance_score?: number | null
+          use_count?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_templates_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -567,6 +635,7 @@ export type Database = {
           source_video_id: string | null
           source_script_id: string | null
           tags: string[] | null
+          metadata: Record<string, unknown> | null
           created_at: string | null
         }
         Insert: {
@@ -578,6 +647,7 @@ export type Database = {
           source_video_id?: string | null
           source_script_id?: string | null
           tags?: string[] | null
+          metadata?: Record<string, unknown> | null
           created_at?: string | null
         }
         Update: {
@@ -589,6 +659,7 @@ export type Database = {
           source_video_id?: string | null
           source_script_id?: string | null
           tags?: string[] | null
+          metadata?: Record<string, unknown> | null
           created_at?: string | null
         }
         Relationships: [

@@ -3,6 +3,7 @@ import { Anton, Montserrat } from "next/font/google";
 import { UserProvider } from "@/hooks/useUser";
 import { SWRProvider } from "@/lib/swr-config";
 import { ToastProvider } from "@/lib/toast-context";
+import { ErrorSuppressor } from "@/components/ErrorSuppressor";
 import "./globals.css";
 
 const anton = Anton({
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body
         className={`${anton.variable} ${montserrat.variable} font-body antialiased bg-brutify-bg text-brutify-text-primary`}
       >
+        <ErrorSuppressor />
         <SWRProvider>
           <UserProvider>
             <ToastProvider>{children}</ToastProvider>

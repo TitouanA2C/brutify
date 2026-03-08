@@ -5,6 +5,7 @@ import { checkCredits, consumeCredits, COSTS } from "@/lib/credits"
 import { canUseFeature, getMinPlanForFeature } from "@/lib/plans"
 import { logApiUsage } from "@/lib/api-usage"
 import { FREE_TRANSCRIPTS_LIMITS } from "@/lib/credits-rules"
+import { resolveVideoFileUrl, isPlaceholderTranscript } from "@/lib/video-url-resolver"
 
 export async function POST(
   _request: Request,
@@ -49,13 +50,24 @@ export async function POST(
 
   const { data: video } = await supabase
     .from("videos")
-    .select("id, url, title")
+    .select("id, url, title, platform, platform_video_id")
     .eq("id", params.id)
     .single()
 
   if (!video) {
     return NextResponse.json({ error: "Vidéo non trouvée" }, { status: 404 })
   }
+
+  // Essayer de lire media_url si la colonne existe
+  let mediaUrl: string | null = null
+  try {
+    const { data: videoExtra } = await serviceSupabase
+      .from("videos")
+      .select("media_url" as never)
+      .eq("id", params.id)
+      .single()
+    mediaUrl = (videoExtra as Record<string, unknown>)?.media_url as string | null
+  } catch { /* colonne pas encore créée */ }
 
   const { data: existing } = await supabase
     .from("transcriptions")
@@ -64,12 +76,17 @@ export async function POST(
     .maybeSingle()
 
   if (existing) {
-    return NextResponse.json({
-      transcription: existing,
-      cached: true,
-      credits_consumed: 0,
-      used_free_transcript: false,
-    })
+    if (isPlaceholderTranscript(existing.content)) {
+      console.log(`[Transcribe] Suppression du faux transcript ${existing.id} pour vidéo ${params.id}`)
+      await serviceSupabase.from("transcriptions").delete().eq("id", existing.id)
+    } else {
+      return NextResponse.json({
+        transcription: existing,
+        cached: true,
+        credits_consumed: 0,
+        used_free_transcript: false,
+      })
+    }
   }
 
   // Vérifier si reset mensuel des transcriptions gratuites nécessaire
@@ -118,22 +135,38 @@ export async function POST(
     usedFreeTranscript = true
   }
 
-  let transcriptContent: string
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json(
+      { error: "Service de transcription non configuré." },
+      { status: 503 }
+    )
+  }
 
+  // Résoudre l'URL directe du fichier vidéo
+  let videoFileUrl = mediaUrl || null
+
+  // Si pas de media_url, essayer de résoudre depuis l'URL Instagram
+  if (!videoFileUrl && video.url) {
+    videoFileUrl = await resolveVideoFileUrl(video.url, video.platform)
+  }
+
+  if (!videoFileUrl) {
+    return NextResponse.json(
+      { error: "Impossible d'obtenir l'URL directe de la vidéo. L'URL du post Instagram ne peut pas être transcrite directement — veuillez re-scraper le créateur pour récupérer les URLs vidéo." },
+      { status: 400 }
+    )
+  }
+
+  let transcriptContent: string
   try {
-    if (process.env.OPENAI_API_KEY && video.url) {
-      transcriptContent = await transcribeVideo(video.url)
-    } else {
-      transcriptContent = generatePlaceholderTranscript(video.title)
-    }
+    transcriptContent = await transcribeVideo(videoFileUrl)
   } catch (err) {
     console.error("[Transcribe]", err)
-    if (video.url) {
-      transcriptContent = generatePlaceholderTranscript(video.title)
-    } else {
-      const message = err instanceof Error ? err.message : "Erreur de transcription"
-      return NextResponse.json({ error: message }, { status: 500 })
-    }
+    const message = err instanceof Error ? err.message : "Erreur de transcription"
+    return NextResponse.json(
+      { error: message },
+      { status: 400 }
+    )
   }
 
   // Consommer BP ou transcription gratuite
@@ -214,25 +247,3 @@ export async function POST(
   })
 }
 
-function generatePlaceholderTranscript(title: string | null): string {
-  const t = title ?? "cette vidéo"
-  return [
-    `[Transcription automatique de "${t}"]`,
-    "",
-    "[0:00] — Hook d'introduction",
-    "Salut ! Aujourd'hui on va parler d'un sujet qui va changer ta vision...",
-    "",
-    "[0:15] — Développement",
-    "Alors première chose importante à comprendre...",
-    "Les données montrent clairement que...",
-    "Et c'est là que ça devient vraiment intéressant...",
-    "",
-    "[1:00] — Point clé",
-    "Ce que personne ne te dit, c'est que...",
-    "Les chiffres parlent d'eux-mêmes...",
-    "",
-    "[1:45] — Conclusion + CTA",
-    "Si cette vidéo t'a aidé, partage-la et abonne-toi.",
-    "On se retrouve dans la prochaine !",
-  ].join("\n")
-}

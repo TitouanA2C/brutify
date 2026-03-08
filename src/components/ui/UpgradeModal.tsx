@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Zap, Loader2 } from "lucide-react";
+import { X, Zap } from "lucide-react";
+import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
 
 interface UpgradeModalProps {
@@ -183,7 +184,7 @@ export function UpgradeModal({
                 disabled={loading}
               >
                 {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loading variant="icon" size="sm" className="h-4 w-4" />
                 ) : (
                   <>
                     <Zap className="h-4 w-4" />

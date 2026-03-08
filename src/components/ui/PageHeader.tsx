@@ -14,7 +14,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, className, children }: PageHeaderProps) {
   return (
     <div className={cn("mb-8", className)}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -24,7 +24,7 @@ export function PageHeader({ title, subtitle, className, children }: PageHeaderP
             initial={{ filter: 'drop-shadow(0 0 20px rgba(255,171,0,0.2))' }}
             animate={{ filter: 'drop-shadow(0 0 30px rgba(255,171,0,0.3))' }}
             transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
-            className="font-display text-4xl tracking-wider text-gold-gradient"
+            className="font-display text-2xl sm:text-3xl md:text-4xl tracking-wider text-gold-gradient"
           >
             {title}
           </motion.h1>

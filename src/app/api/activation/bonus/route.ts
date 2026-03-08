@@ -11,7 +11,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    const { bonusId } = await request.json()
+    let body: Record<string, unknown>
+    try { body = await request.json() } catch { return NextResponse.json({ error: "Body invalide" }, { status: 400 }) }
+    const { bonusId } = body as { bonusId?: string }
 
     if (!bonusId || typeof bonusId !== "string") {
       return NextResponse.json(
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
           { status: 403 }
         )
       }
-      bonus = EARLY_UPGRADE_BONUS as any
+      bonus = EARLY_UPGRADE_BONUS
     }
 
     if (!bonus) {
@@ -67,8 +69,27 @@ export async function POST(request: Request) {
       )
     }
 
-    // TODO: Vérifier la condition du bonus (à implémenter selon le bonus)
-    // Par exemple pour "follow_creators", vérifier qu'il y a bien 3+ créateurs dans watchlist
+    // Vérifier la condition du bonus
+    if (bonus.id === "follow_creators") {
+      const { count } = await serviceSupabase.from("watchlists").select("id", { count: "exact", head: true }).eq("user_id", user.id)
+      if ((count ?? 0) < 3) return NextResponse.json({ error: "Il faut suivre au moins 3 créateurs" }, { status: 403 })
+    } else if (bonus.id === "scrape_videos") {
+      const { count } = await serviceSupabase.from("videos").select("id", { count: "exact", head: true }).eq("creator_id", user.id).limit(5)
+      // count videos across watched creators
+      const { data: wl } = await serviceSupabase.from("watchlists").select("creator_id").eq("user_id", user.id)
+      if (wl?.length) {
+        const { count: vCount } = await serviceSupabase.from("videos").select("id", { count: "exact", head: true }).in("creator_id", wl.map(w => w.creator_id))
+        if ((vCount ?? 0) < 5) return NextResponse.json({ error: "Il faut au moins 5 vidéos scrapées" }, { status: 403 })
+      } else {
+        return NextResponse.json({ error: "Il faut au moins 5 vidéos scrapées" }, { status: 403 })
+      }
+    } else if (bonus.id === "generate_script") {
+      const { count } = await serviceSupabase.from("scripts").select("id", { count: "exact", head: true }).eq("user_id", user.id)
+      if ((count ?? 0) < 1) return NextResponse.json({ error: "Il faut générer au moins 1 script" }, { status: 403 })
+    } else if (bonus.id === "add_to_board") {
+      const { count } = await serviceSupabase.from("board_items").select("id", { count: "exact", head: true }).eq("user_id", user.id)
+      if ((count ?? 0) < 1) return NextResponse.json({ error: "Il faut ajouter au moins 1 élément au board" }, { status: 403 })
+    }
 
     // Débloquer le bonus
     const newActivationBonuses = {
@@ -102,10 +123,6 @@ export async function POST(request: Request) {
       action: `activation_bonus_${bonusId}`,
       reference_id: bonusId,
     })
-
-    console.log(
-      `[Activation Bonus] User ${user.id} unlocked "${bonus.name}" (+${bonus.reward} BP)`
-    )
 
     return NextResponse.json({
       success: true,
@@ -155,7 +172,7 @@ export async function GET(request: Request) {
 
     // Ajouter le bonus early_upgrade si en période d'essai
     const allBonuses = inTrial
-      ? [...ACTIVATION_BONUSES, EARLY_UPGRADE_BONUS as any]
+      ? [...ACTIVATION_BONUSES, EARLY_UPGRADE_BONUS]
       : ACTIVATION_BONUSES
 
     const bonusesWithStatus = allBonuses.map(bonus => ({

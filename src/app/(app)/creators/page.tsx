@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, UserX, X, Instagram, Youtube, AtSign, ArrowUpDown, Users, Zap, Trophy, Loader2, BadgeCheck, AlertTriangle, Hash, Star } from "lucide-react";
+import { Search, Plus, UserX, X, Instagram, Youtube, AtSign, ArrowUpDown, Users, Zap, Trophy, BadgeCheck, AlertTriangle, Hash, Star } from "lucide-react";
 import Image from "next/image";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { CardSkeleton } from "@/components/ui/Skeleton";
+import { Loading } from "@/components/ui/Loading";
 import dynamic from "next/dynamic";
 import { CreatorCard } from "@/components/creators/CreatorCard";
 const CreatorDetailModal = dynamic(
@@ -976,41 +977,13 @@ function AddCreatorModal({
                     exit={{ opacity: 0, x: 12 }}
                     transition={{ duration: 0.2 }}
                   >
-                    {/* Platform */}
-                    <div className="mb-4">
-                      <label className="block text-xs font-body font-medium text-brutify-text-secondary mb-1.5">Plateforme</label>
-                      <div className="flex gap-2">
-                        {platformOptions.map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() => { setNamePlatform(opt.value); setSearchResults([]); setSearchDone(false); }}
-                            className={cn(
-                              "flex-1 flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-body font-medium transition-all duration-200 cursor-pointer",
-                              namePlatform === opt.value
-                                ? "bg-brutify-gold/[0.08] border-brutify-gold/20 text-brutify-gold"
-                                : "border-white/[0.06] text-brutify-text-muted hover:border-white/[0.1] hover:text-brutify-text-primary"
-                            )}
-                          >
-                            {opt.icon}{opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
                     {/* Tip */}
                     <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5">
-                      {namePlatform === "instagram" ? (
-                        <p className="text-xs font-body text-brutify-text-muted leading-relaxed">
-                          Tu connais le nom du créateur mais <span className="text-brutify-text-primary font-medium">pas son @ exact</span> ?
-                          Tape son nom — Brutify va chercher les profils Instagram correspondants.
-                          <span className="text-white/40"> (Coûte plus de BP qu&apos;avec le @ direct)</span>
-                        </p>
-                      ) : (
-                        <p className="text-xs font-body text-brutify-text-muted leading-relaxed">
-                          La recherche par nom sur <span className="text-brutify-text-primary font-medium">{platformOptions.find(o => o.value === namePlatform)?.label}</span> arrive bientôt.
-                          En attendant, utilise l&apos;onglet <span className="text-brutify-gold font-medium">&ldquo;J&apos;ai le @ exact&rdquo;</span> si tu connais le @ du créateur.
-                        </p>
-                      )}
+                      <p className="text-xs font-body text-brutify-text-muted leading-relaxed">
+                        Tu connais le nom du créateur mais <span className="text-brutify-text-primary font-medium">pas son @ exact</span> ?
+                        Tape son nom — Brutify va chercher les profils Instagram correspondants.
+                        <span className="text-white/40"> (Coûte plus de BP qu&apos;avec le @ direct)</span>
+                      </p>
                     </div>
 
                     {/* Search input — Instagram only for now */}
@@ -1035,7 +1008,7 @@ function AddCreatorModal({
                             : "bg-white/[0.03] border border-white/[0.06] text-brutify-text-muted cursor-not-allowed"
                         )}
                       >
-                        {searchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        {searchLoading ? <Loading variant="icon" size="sm" className="h-4 w-4" /> : <Search className="h-4 w-4" />}
                       </button>
                     </div>
                     )}
@@ -1051,7 +1024,7 @@ function AddCreatorModal({
                         >
                           <div className="relative flex h-12 w-12 items-center justify-center">
                             <div className="absolute inset-0 rounded-full border-2 border-brutify-gold/10" />
-                            <div className="absolute inset-0 rounded-full border-t-2 border-brutify-gold/60 animate-spin" />
+                            <span className="absolute inset-0 rounded-full border-2 border-brutify-gold/25 border-t-brutify-gold animate-brutify-spin" />
                             <Instagram className="h-5 w-5 text-brutify-gold/60" />
                           </div>
                           <div className="text-center">
@@ -1155,7 +1128,7 @@ function AddCreatorModal({
                                     : "border-white/[0.08] text-brutify-text-muted group-hover:border-brutify-gold/20 group-hover:text-brutify-gold group-hover:bg-brutify-gold/[0.06]"
                                 )}>
                                   {isAdding
-                                    ? <><Loader2 className="h-3 w-3 animate-spin" />Ajout</>
+                                    ? <><Loading variant="icon" size="sm" className="h-3 w-3 shrink-0" />Ajout</>
                                     : <><Plus className="h-3 w-3" />Ajouter</>
                                   }
                                 </div>

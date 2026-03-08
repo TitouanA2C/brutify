@@ -22,8 +22,9 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const body = await request.json()
-  const { label, hashtags_broad, hashtags_niche, hashtags_fr } = body
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: "Body invalide" }, { status: 400 }) }
+  const { label, hashtags_broad, hashtags_niche, hashtags_fr } = body as { label?: string; hashtags_broad?: string[]; hashtags_niche?: string[]; hashtags_fr?: string[] }
 
   if (!label?.trim()) {
     return NextResponse.json({ error: "Le nom de la niche est requis" }, { status: 400 })

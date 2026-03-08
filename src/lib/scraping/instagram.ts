@@ -53,6 +53,7 @@ export interface ScrapedVideo {
   platform_video_id: string
   caption: string | null
   url: string
+  media_url: string | null
   thumbnail_url: string | null
   views: number
   likes: number
@@ -154,10 +155,12 @@ export function parseScrapedPosts(items: unknown[]): ScrapedVideo[] {
     const videoViews = Number(post.videoViewCount || post.videoPlayCount || post.playCount || post.viewsCount || 0)
     const likes = Number(post.likesCount || post.likes || 0)
     const views = videoViews > 0 ? videoViews : likes * 30
+    const videoUrl = (post.videoUrl as string) || (post.video_url as string) || null
     videos.push({
       platform_video_id: pid,
       caption: (post.caption as string) || (post.text as string) || null,
       url: (post.url as string) || (shortCode ? `https://www.instagram.com/p/${shortCode}/` : ""),
+      media_url: videoUrl,
       thumbnail_url:
         (post.displayUrl as string) ||
         (post.thumbnailUrl as string) ||

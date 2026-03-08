@@ -56,7 +56,6 @@ export async function POST(
   let runId: string
   try {
     runId = await startInstagramPostsScrape(creator.handle, requestedLimit)
-    console.log(`[Scrape Videos] @${creator.handle} → runId=${runId} limit=${requestedLimit}`)
   } catch (err) {
     console.error("[Scrape Videos] start error", err)
     return NextResponse.json(

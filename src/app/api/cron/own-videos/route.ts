@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization")
   const cronSecret = process.env.CRON_SECRET
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   }
 
@@ -95,12 +95,19 @@ export async function GET(req: NextRequest) {
       const scraped = await scrapeInstagramProfile(handle)
 
       // 4. Upsert creator (peut être le propre créateur de l'utilisateur)
-      const { data: creator } = await supabase
+      // Find existing creator by handle+platform, or create new
+      let creator: { id: string } | null = null
+      const { data: existingByHandle } = await supabase
         .from("creators")
-        .upsert(
-          {
-            handle,
-            platform: "instagram",
+        .select("id, platform_id")
+        .eq("handle", handle)
+        .eq("platform", "instagram")
+        .maybeSingle()
+
+      if (existingByHandle) {
+        await supabase
+          .from("creators")
+          .update({
             name: scraped.name,
             avatar_url: scraped.avatar_url,
             bio: scraped.bio,
@@ -108,11 +115,28 @@ export async function GET(req: NextRequest) {
             posts_count: scraped.posts_count,
             last_scraped_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          },
-          { onConflict: "handle,platform" }
-        )
-        .select("id")
-        .single()
+          })
+          .eq("id", existingByHandle.id)
+        creator = existingByHandle
+      } else {
+        const { data: inserted } = await supabase
+          .from("creators")
+          .insert({
+            handle,
+            platform: "instagram",
+            platform_id: handle,
+            name: scraped.name,
+            avatar_url: scraped.avatar_url,
+            bio: scraped.bio,
+            followers: scraped.followers,
+            posts_count: scraped.posts_count,
+            last_scraped_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single()
+        creator = inserted
+      }
 
       if (!creator) {
         results.push({
@@ -242,9 +266,6 @@ export async function GET(req: NextRequest) {
         transcribed,
       })
 
-      console.log(
-        `[OwnVideos] @${handle}: ${scored.length} vidéos, ${newVideoCount} nouvelles, ${transcribed} transcrites`
-      )
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erreur inconnue"
       results.push({

@@ -88,7 +88,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   }
 
-  const body = await request.json()
+  let body: Record<string, unknown>
+  try { body = await request.json() } catch { return NextResponse.json({ error: "Body invalide" }, { status: 400 }) }
   const creatorId = body?.creator_id
 
   if (!creatorId || typeof creatorId !== "string") {

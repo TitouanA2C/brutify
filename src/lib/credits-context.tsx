@@ -6,6 +6,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
 import { useUser } from "@/hooks/useUser";
@@ -99,6 +100,18 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
       setLocalCredits(profile.credits);
     }
   }, [profile]);
+
+  // Rafraîchir le profil si les crédits sont à 0 alors que le profil vient de charger
+  const didInitialRefresh = useRef(false);
+  useEffect(() => {
+    if (!profile?.id || didInitialRefresh.current) return;
+    didInitialRefresh.current = true;
+    if (profile.credits === 0 || profile.credits === null) {
+      const t = setTimeout(() => refreshProfile(), 1000);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
 
   // Charger l'historique depuis credit_transactions au montage
   const loadHistory = useCallback(async (userId: string) => {

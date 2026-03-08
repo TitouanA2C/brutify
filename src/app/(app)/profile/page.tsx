@@ -12,7 +12,6 @@ import {
   Users,
   Video,
   FileText,
-  Loader2,
   Sparkles,
   Target,
   Mic,
@@ -24,6 +23,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useUser } from "@/hooks/useUser";
 import { cn } from "@/lib/utils";
+import { Loading } from "@/components/ui/Loading";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -98,7 +98,7 @@ function EditableField({
             disabled={saving}
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-brutify-gold/10 border border-brutify-gold/20 text-brutify-gold hover:bg-brutify-gold/20 transition-all cursor-pointer"
           >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            {saving ? <Loading variant="icon" size="sm" className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
           </button>
           <button
             onClick={() => { setDraft(value); setEditing(false); }}
@@ -156,7 +156,7 @@ export default function ProfilePage() {
   }, [refreshProfile]);
 
   const plan = profileData?.plan ?? ctxProfile?.plan ?? "creator";
-  const planStyle = PLAN_COLORS[plan] ?? PLAN_COLORS.free;
+  const planStyle = PLAN_COLORS[plan] ?? PLAN_COLORS.creator;
   const memberSince = profileData?.created_at
     ? new Date(profileData.created_at).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
     : "—";
@@ -169,7 +169,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-brutify-gold" />
+        <Loading variant="page" size="md" />
       </div>
     );
   }
@@ -198,7 +198,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="px-6 -mt-10 pb-6">
-          <div className="flex items-end gap-4 mb-4">
+            <div className="flex flex-wrap items-end gap-3 sm:gap-4 mb-4">
             {/* Avatar */}
             <div className="relative shrink-0">
               <div className="h-[72px] w-[72px] rounded-2xl border-4 border-brutify-gold/40 bg-[#111113] overflow-hidden shadow-[0_0_40px_rgba(255,171,0,0.35)]" style={{ outline: "3px solid rgba(255,171,0,0.3)" }}>
@@ -230,7 +230,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-3 mb-0">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-0">
             {[
               { icon: <Users className="h-4 w-4" />, label: "Créateurs", value: stats.creators },
               { icon: <Video className="h-4 w-4" />, label: "Vidéos analysées", value: stats.videos },

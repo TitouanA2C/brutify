@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import { 
   Check, 
   AlertCircle, 
-  Loader2, 
   ShoppingCart, 
   Sparkles,
   Crown,
@@ -18,6 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
+import { Loading } from "@/components/ui/Loading"
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
@@ -482,7 +482,7 @@ export function PricingSection({
                       >
                         {loadingPlan === plan.key ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loading variant="icon" size="sm" className="h-4 w-4" />
                             <span>Chargement...</span>
                           </>
                         ) : (
@@ -657,7 +657,7 @@ export function PricingSection({
                   >
                     {loadingCredits === pack.amount ? (
                       <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loading variant="icon" size="sm" className="h-3.5 w-3.5" />
                         <span>Chargement...</span>
                       </>
                     ) : (

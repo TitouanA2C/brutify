@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -13,7 +14,6 @@ import {
   Clock,
   X,
   Bookmark,
-  Loader2,
   Sparkles,
   Zap,
   AlertTriangle,
@@ -28,12 +28,14 @@ import {
   type VaultItem,
 } from "@/hooks/useVault";
 import { cn } from "@/lib/utils";
+import { Loading } from "@/components/ui/Loading";
 
-type VaultType = "video" | "script" | "manual" | "ai";
+type VaultType = "video" | "script" | "manual" | "ai" | "idea";
 type FilterType = "all" | VaultType;
 
 const typeFilters: { value: FilterType; label: string }[] = [
   { value: "all", label: "Tous" },
+  { value: "idea", label: "💡 Banque d'idées" },
   { value: "ai", label: "✨ Inspiration IA" },
   { value: "video", label: "Vidéos" },
   { value: "script", label: "Scripts" },
@@ -45,6 +47,7 @@ const typeConfig: Record<VaultType, { label: string; icon: typeof Play; color: s
   script: { label: "Script",         icon: PenTool,    color: "#FFAB00" },
   manual: { label: "Manuel",         icon: Lightbulb,  color: "#CC8800" },
   ai:     { label: "Inspiration IA", icon: Sparkles,   color: "#A855F7" },
+  idea:   { label: "Banque d'idées", icon: Lightbulb,  color: "#3B82F6" },
 };
 
 const EASE_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -116,7 +119,7 @@ export default function VaultPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 animate-spin text-brutify-gold" />
+        <Loading variant="page" size="lg" />
       </div>
     );
   }
@@ -140,7 +143,7 @@ export default function VaultPage() {
           disabled={inspiring}
         >
           {inspiring ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loading variant="icon" size="sm" className="h-4 w-4" />
           ) : (
             <Sparkles className="h-4 w-4" />
           )}
@@ -281,9 +284,12 @@ export default function VaultPage() {
 // ── Idea Card ─────────────────────────────────────────────────────────────────
 
 function IdeaCard({ item, onDelete }: { item: VaultItem; onDelete: (id: string) => void }) {
+  const router = useRouter();
   const cfg = typeConfig[item.type as VaultType];
   const Icon = cfg?.icon ?? Lightbulb;
   const isAI = item.type === "ai";
+  const isIdea = item.type === "idea";
+  const meta = (item as unknown as { metadata?: { vision?: string } }).metadata;
 
   const formattedDate = item.created_at
     ? new Date(item.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })
@@ -327,11 +333,17 @@ function IdeaCard({ item, onDelete }: { item: VaultItem; onDelete: (id: string) 
       </div>
 
       <p className={cn(
-        "text-sm font-body leading-relaxed mb-4 line-clamp-4 flex-1",
+        "text-sm font-body leading-relaxed mb-2 line-clamp-4 flex-1",
         isAI ? "text-purple-100/80" : "text-brutify-text-secondary"
       )}>
         {item.content}
       </p>
+
+      {isIdea && meta?.vision && (
+        <p className="text-[11px] font-body italic text-brutify-text-muted/60 mb-3 line-clamp-2">
+          {meta.vision}
+        </p>
+      )}
 
       {item.tags && item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -358,8 +370,28 @@ function IdeaCard({ item, onDelete }: { item: VaultItem; onDelete: (id: string) 
         </span>
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <ActionBtn icon={<ScrollText className="h-3 w-3" />} tooltip="Forger un script" onClick={() => {}} isAI={isAI} />
-          <ActionBtn icon={<LayoutDashboard className="h-3 w-3" />} tooltip="Planifier" onClick={() => {}} isAI={isAI} />
+          <ActionBtn
+            icon={<ScrollText className="h-3 w-3" />}
+            tooltip="Forger un script"
+            onClick={() => {
+              const subjectText = meta?.vision
+                ? `${item.content}\n\n${meta.vision}`
+                : item.content;
+              router.push(`/scripts?prefill_subject=${encodeURIComponent(subjectText)}`);
+            }}
+            isAI={isAI}
+          />
+          <ActionBtn icon={<LayoutDashboard className="h-3 w-3" />} tooltip="Planifier" onClick={() => {
+            fetch("/api/board", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: item.content.slice(0, 200),
+                status: "idea",
+                notes: meta?.vision ?? undefined,
+              }),
+            }).then(() => router.push("/board"));
+          }} isAI={isAI} />
           <ActionBtn icon={<Trash2 className="h-3 w-3" />} tooltip="Supprimer" onClick={() => onDelete(item.id)} danger />
         </div>
       </div>
@@ -440,13 +472,13 @@ function EmptyState({
       <div className="flex items-center gap-3">
         {isAIFilter ? (
           <Button variant="primary" size="md" onClick={onInspire} disabled={inspiring}>
-            {inspiring ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {inspiring ? <Loading variant="icon" size="sm" className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
             {inspiring ? "Génération…" : "Générer des idées IA"}
           </Button>
         ) : (
           <>
             <Button variant="secondary" size="md" onClick={onInspire} disabled={inspiring}>
-              {inspiring ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {inspiring ? <Loading variant="icon" size="sm" className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
               Inspiration IA
             </Button>
             <Button variant="primary" size="md" onClick={onAdd}>
@@ -564,7 +596,7 @@ function NewIdeaModal({
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={handleTagKeyDown}
                     placeholder={tags.length === 0 ? "Ajoute des tags (Entrée pour valider)" : ""}
-                    className="flex-1 min-w-[120px] bg-transparent text-sm font-body text-brutify-text-primary placeholder:text-brutify-text-muted outline-none"
+                    className="flex-1 min-w-[80px] sm:min-w-[120px] bg-transparent text-sm font-body text-brutify-text-primary placeholder:text-brutify-text-muted outline-none"
                   />
                 </div>
                 <p className="text-[10px] font-body text-brutify-text-muted mt-1">Appuie sur Entrée ou virgule pour ajouter un tag</p>
@@ -574,7 +606,7 @@ function NewIdeaModal({
             <div className="relative flex items-center justify-end gap-2 px-5 py-4 border-t border-white/[0.06]">
               <Button variant="ghost" size="md" onClick={onClose}>Annuler</Button>
               <Button variant="primary" size="md" onClick={handleSubmit} disabled={!content.trim() || isCreating}>
-                {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sauvegarder"}
+                {isCreating ? <Loading variant="icon" size="sm" className="h-4 w-4" /> : "Sauvegarder"}
               </Button>
             </div>
           </motion.div>

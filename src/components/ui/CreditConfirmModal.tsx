@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { CreditCard, AlertTriangle, X, ShoppingCart, Loader2 } from "lucide-react";
+import { CreditCard, AlertTriangle, X, ShoppingCart } from "lucide-react";
+import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
 import { useCredits } from "@/lib/credits-context";
 
@@ -167,7 +168,7 @@ export function CreditConfirmModal({
                     disabled={buyingCredits}
                   >
                     {buyingCredits ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loading variant="icon" size="sm" className="h-4 w-4" />
                     ) : (
                       <>
                         <ShoppingCart className="h-4 w-4" />

@@ -3,13 +3,14 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  X, Telescope, Loader2, Users, Instagram, BadgeCheck,
+  X, Telescope, Users, Instagram, BadgeCheck,
   Plus, AlertTriangle, Globe, ChevronDown, Hash, Sparkles,
   ChevronLeft, Search, Flame, Check, Music2,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { useDiscoverCreators, useNiches, type DiscoveredCreator, type DiscoverParams, type NicheDTO } from "@/hooks/useCreators"
+import { Loading } from "@/components/ui/Loading"
 
 const expoOut: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
@@ -189,7 +190,7 @@ function NicheSelector({
       >
         {loading ? (
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <Loader2 className="h-4 w-4 text-brutify-text-muted animate-spin shrink-0" />
+            <Loading variant="icon" size="sm" className="h-4 w-4 text-brutify-text-muted shrink-0" />
             <div className="h-3 w-20 rounded bg-white/[0.06] animate-pulse" />
           </div>
         ) : selected ? (
@@ -597,7 +598,7 @@ function AddNicheForm({
               : "bg-white/[0.04] text-brutify-text-muted cursor-not-allowed"
           )}
         >
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          {loading ? <Loading variant="icon" size="sm" className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
           {loading ? "Création..." : "Créer la niche"}
         </button>
       </div>
@@ -809,7 +810,7 @@ export function DiscoverModal({ open, onClose, onAddCreator }: DiscoverModalProp
                       )}
                     >
                       {isLoading ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" />Scan en cours… (~1-2 min)</>
+                        <><Loading variant="icon" size="sm" className="h-4 w-4 shrink-0" />Scan en cours… (~1-2 min)</>
                       ) : platform === "instagram" ? (
                         <><Instagram className="h-4 w-4" />Scanner Instagram</>
                       ) : (
@@ -824,7 +825,7 @@ export function DiscoverModal({ open, onClose, onAddCreator }: DiscoverModalProp
                         className="mt-3 rounded-xl border border-brutify-gold/10 bg-brutify-gold/[0.03] p-3"
                       >
                         <div className="flex items-start gap-2.5">
-                          <Loader2 className="h-3.5 w-3.5 text-brutify-gold/60 animate-spin mt-0.5 shrink-0" />
+                          <Loading variant="icon" size="sm" className="h-3.5 w-3.5 text-brutify-gold/60 mt-0.5 shrink-0" />
                           <div>
                             <p className="text-[11px] font-body text-brutify-gold/80 font-medium mb-0.5">
                               Pipeline en cours d&apos;exécution

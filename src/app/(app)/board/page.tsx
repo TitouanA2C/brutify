@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Circle, Calendar, MoreHorizontal, Pencil, Trash2, X,
-  LayoutDashboard, Play, Sparkles, Loader2, ChevronLeft, ChevronRight,
-  Instagram, Youtube, AtSign, Clock, Check, List,
+  LayoutDashboard, Play, Sparkles, ChevronLeft, ChevronRight,
+  Clock, Check, List,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +15,8 @@ import {
   useBoard, useCreateBoardItem, useUpdateBoardItem, useDeleteBoardItem, type BoardItem,
 } from "@/hooks/useBoard";
 import { cn } from "@/lib/utils";
+import { Loading } from "@/components/ui/Loading";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 // ─── Types & Config ───────────────────────────────────────────────────────────
 
@@ -36,15 +39,28 @@ const statusOrder: BrutBoardStatus[] = ["idea","draft","in_progress","scheduled"
 
 const platformLabels: Record<Platform, string> = { instagram: "IG", tiktok: "TT", youtube: "YT" };
 const platformColors: Record<Platform, string> = { instagram: "#E1306C", tiktok: "#00F2EA", youtube: "#FF0000" };
-const platformIcons: Record<Platform, React.ReactNode> = {
-  instagram: <Instagram className="h-3 w-3" />,
-  tiktok:    <AtSign className="h-3 w-3" />,
-  youtube:   <Youtube className="h-3 w-3" />,
+const platformSvg: Record<Platform, (cls: string) => React.ReactNode> = {
+  instagram: (cls) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={cls}>
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+    </svg>
+  ),
+  tiktok: (cls) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={cls}>
+      <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.48V13.2a8.16 8.16 0 005.58 2.2V12a4.85 4.85 0 01-5.58-2.2V2h3.45a4.83 4.83 0 002.13 4.69z" />
+    </svg>
+  ),
+  youtube: (cls) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={cls}>
+      <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  ),
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BrutBoardPage() {
+  const router = useRouter();
   const { items, isLoading, mutate } = useBoard();
   const { create, isCreating } = useCreateBoardItem();
   const { update } = useUpdateBoardItem();
@@ -100,15 +116,34 @@ export default function BrutBoardPage() {
     statusFilter === "all" ? items : items.filter(i => i.status === statusFilter)
   , [items, statusFilter]);
 
-  const itemsByDate = useMemo(() => {
-    const map: Record<string, BoardItem[]> = {};
-    filteredItems.filter(i => i.scheduled_date).forEach(i => {
-      const d = i.scheduled_date!.slice(0, 10);
+  type CalendarEvent = { item: BoardItem; type: "shoot" | "edit" | "publish" | "scheduled" };
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {};
+    const add = (date: string | null | undefined, item: BoardItem, type: CalendarEvent["type"]) => {
+      if (!date) return;
+      const d = date.slice(0, 10);
       if (!map[d]) map[d] = [];
-      map[d].push(i);
+      if (!map[d].some(e => e.item.id === item.id && e.type === type)) {
+        map[d].push({ item, type });
+      }
+    };
+    filteredItems.forEach(i => {
+      add(i.shoot_date, i, "shoot");
+      add(i.edit_date, i, "edit");
+      add(i.publish_date, i, "publish");
+      if (!i.shoot_date && !i.edit_date && !i.publish_date && i.scheduled_date) {
+        add(i.scheduled_date, i, "scheduled");
+      }
     });
     return map;
   }, [filteredItems]);
+
+  const EVENT_TYPE_CONFIG: Record<CalendarEvent["type"], { label: string; color: string; bg: string; border: string; icon: string }> = {
+    shoot:     { label: "Tournage",    color: "#60A5FA", bg: "bg-blue-400/[0.08]",    border: "border-blue-400/[0.15]",   icon: "🎬" },
+    edit:      { label: "Montage",     color: "#A78BFA", bg: "bg-purple-400/[0.08]",  border: "border-purple-400/[0.15]", icon: "✂️" },
+    publish:   { label: "Publication", color: "#FFAB00", bg: "bg-brutify-gold/[0.08]", border: "border-brutify-gold/[0.15]", icon: "🚀" },
+    scheduled: { label: "Planifié",    color: "#8B5CF6", bg: "bg-purple-500/[0.06]",  border: "border-purple-500/[0.12]", icon: "📅" },
+  };
 
   const statusCounts = useMemo(() => {
     const c: Record<string, number> = { all: items.length };
@@ -123,11 +158,15 @@ export default function BrutBoardPage() {
   }, []);
 
   const openEdit = useCallback((item: BoardItem) => {
+    if (item.script_id) {
+      router.push(`/scripts?edit=${item.script_id}`);
+      return;
+    }
     setEditItem(item);
     setPrefillDate(undefined);
     setShowModal(true);
     setMenuOpenId(null);
-  }, []);
+  }, [router]);
 
   const handleSave = useCallback(async (body: {
     title: string; status?: string; scheduled_date?: string; platform?: string; notes?: string;
@@ -158,7 +197,7 @@ export default function BrutBoardPage() {
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-32">
-      <Loader2 className="h-8 w-8 animate-spin text-brutify-gold" />
+      <Loading variant="page" size="lg" />
     </div>
   );
 
@@ -192,7 +231,7 @@ export default function BrutBoardPage() {
             <div className="flex items-center gap-1">
               <button onClick={() => setCurrentDate(new Date(year,month-1,1))} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.06] text-brutify-text-muted hover:text-brutify-text-primary hover:border-white/[0.1] transition-all cursor-pointer"><ChevronLeft className="h-4 w-4" /></button>
               <button onClick={() => setCurrentDate(new Date())} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-[11px] font-body text-brutify-text-secondary hover:text-brutify-text-primary hover:border-white/[0.1] transition-all cursor-pointer">Aujourd&apos;hui</button>
-              <span className="font-display text-base tracking-wider text-brutify-text-primary min-w-[160px] text-center">{MONTHS[month]} {year}</span>
+              <span className="font-display text-base tracking-wider text-brutify-text-primary min-w-[120px] sm:min-w-[160px] text-center">{MONTHS[month]} {year}</span>
               <button onClick={() => setCurrentDate(new Date(year,month+1,1))} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.06] text-brutify-text-muted hover:text-brutify-text-primary hover:border-white/[0.1] transition-all cursor-pointer"><ChevronRight className="h-4 w-4" /></button>
             </div>
           )}
@@ -253,15 +292,15 @@ export default function BrutBoardPage() {
             {/* Calendar grid */}
             <div className="rounded-2xl border border-white/[0.06] bg-[#111113]/40 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.25)]">
               <div className="grid grid-cols-7 border-b border-white/[0.06]">
-                {DAYS.map(d => <div key={d} className="py-3 text-center text-[11px] font-body font-semibold uppercase tracking-wider text-brutify-text-muted">{d}</div>)}
+                {DAYS.map(d => <div key={d} className="py-3 text-center text-[9px] sm:text-[11px] font-body font-semibold uppercase tracking-wider text-brutify-text-muted">{d}</div>)}
               </div>
               <div className="grid grid-cols-7">
                 {calendarDays.map((day, i) => {
-                  const dayItems = itemsByDate[day.date] || [];
+                  const dayEvents = eventsByDate[day.date] || [];
                   const isSelected = selectedDay === day.date;
                   return (
                     <div key={day.date+i} onClick={() => setSelectedDay(isSelected?null:day.date)}
-                      className={cn("relative min-h-[110px] border-b border-r border-white/[0.03] p-1.5 transition-all duration-200 cursor-pointer group",
+                      className={cn("relative min-h-[70px] sm:min-h-[110px] border-b border-r border-white/[0.03] p-1.5 transition-all duration-200 cursor-pointer group",
                         !day.isCurrentMonth && "opacity-30", day.isToday && "bg-brutify-gold/[0.02]",
                         isSelected && "bg-white/[0.03] ring-1 ring-inset ring-brutify-gold/20", !isSelected && "hover:bg-white/[0.03] hover:border-brutify-gold/30 hover:shadow-[0_0_15px_rgba(255,171,0,0.15)]")}>
                       <div className="flex items-center justify-between px-1 mb-1">
@@ -271,16 +310,19 @@ export default function BrutBoardPage() {
                         )}
                       </div>
                       <div className="space-y-0.5">
-                        {dayItems.slice(0, 3).map(item => (
-                          <button key={item.id} onClick={e => { e.stopPropagation(); openEdit(item); }}
-                            className={cn("w-full rounded-md px-1.5 py-0.5 text-left text-[10px] font-body font-medium truncate transition-all border cursor-pointer hover:brightness-125", statusConfig[item.status as BrutBoardStatus]?.bg, statusConfig[item.status as BrutBoardStatus]?.border)}>
-                            <span className="flex items-center gap-1">
-                              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: platformColors[(item.platform as Platform) ?? "instagram"] }} />
-                              <span className="truncate text-brutify-text-primary/80">{item.title}</span>
-                            </span>
-                          </button>
-                        ))}
-                        {dayItems.length > 3 && <span className="block text-[9px] font-body text-brutify-text-muted px-1.5">+{dayItems.length-3} de plus</span>}
+                        {dayEvents.slice(0, 3).map((evt, j) => {
+                          const cfg = EVENT_TYPE_CONFIG[evt.type];
+                          return (
+                            <button key={evt.item.id+evt.type+j} onClick={e => { e.stopPropagation(); openEdit(evt.item); }}
+                              className={cn("w-full rounded-md px-1.5 py-0.5 text-left text-[10px] font-body font-medium truncate transition-all border cursor-pointer hover:brightness-125", cfg.bg, cfg.border)}>
+                              <span className="flex items-center gap-1">
+                                <span className="shrink-0 text-[8px]">{cfg.icon}</span>
+                                <span className="truncate" style={{ color: cfg.color }}>{evt.item.title}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                        {dayEvents.length > 3 && <span className="block text-[9px] font-body text-brutify-text-muted px-1.5">+{dayEvents.length-3} de plus</span>}
                       </div>
                     </div>
                   );
@@ -290,7 +332,7 @@ export default function BrutBoardPage() {
 
             {/* Selected day panel */}
             <AnimatePresence>
-              {selectedDay && (itemsByDate[selectedDay]?.length ?? 0) > 0 && (
+              {selectedDay && (eventsByDate[selectedDay]?.length ?? 0) > 0 && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: EASE }} className="overflow-hidden">
                   <div className="mt-4 rounded-2xl border border-white/[0.06] bg-[#111113]/40 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)]">
                     <div className="flex items-center justify-between mb-4">
@@ -298,27 +340,30 @@ export default function BrutBoardPage() {
                       <button onClick={() => setSelectedDay(null)} className="flex h-7 w-7 items-center justify-center rounded-lg text-brutify-text-muted hover:text-brutify-text-primary transition-colors cursor-pointer"><X className="h-4 w-4" /></button>
                     </div>
                     <div className="space-y-2">
-                      {(itemsByDate[selectedDay] ?? []).map((item, i) => (
-                        <motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i*0.04, duration: 0.2 }}
-                          onClick={() => openEdit(item)}
-                          className={cn("flex items-center gap-3 rounded-xl border p-3 transition-all cursor-pointer hover:border-white/[0.12]", statusConfig[item.status as BrutBoardStatus]?.bg, statusConfig[item.status as BrutBoardStatus]?.border)}>
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: platformColors[(item.platform as Platform)??"instagram"]+"18", color: platformColors[(item.platform as Platform)??"instagram"] }}>
-                            {platformIcons[(item.platform as Platform)??"instagram"]}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-body font-medium text-brutify-text-primary truncate">{item.title}</p>
-                            {item.scheduled_date && (
-                              <span className="flex items-center gap-1 text-[10px] font-body text-brutify-text-muted">
-                                <Clock className="h-2.5 w-2.5" />{item.scheduled_date.slice(11,16)||"—"}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className={cn("h-2 w-2 rounded-full", statusConfig[item.status as BrutBoardStatus]?.dot)} />
-                            <span className="text-[10px] font-body font-medium text-brutify-text-muted">{statusConfig[item.status as BrutBoardStatus]?.label}</span>
-                          </div>
-                        </motion.div>
-                      ))}
+                      {(eventsByDate[selectedDay] ?? []).map((evt, i) => {
+                        const evtCfg = EVENT_TYPE_CONFIG[evt.type];
+                        return (
+                          <motion.div key={evt.item.id+evt.type} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i*0.04, duration: 0.2 }}
+                            onClick={() => openEdit(evt.item)}
+                            className={cn("flex items-center gap-3 rounded-xl border p-3 transition-all cursor-pointer hover:border-white/[0.12]", evtCfg.bg, evtCfg.border)}>
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg" style={{ backgroundColor: evtCfg.color + "15" }}>
+                              {evtCfg.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-body font-medium text-brutify-text-primary truncate">{evt.item.title}</p>
+                              <span className="text-[10px] font-body font-medium" style={{ color: evtCfg.color }}>{evtCfg.label}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {evt.item.platform && (
+                                <span className="flex items-center gap-1 text-[10px] font-body text-brutify-text-muted">
+                                  {platformSvg[(evt.item.platform as Platform)]("h-3 w-3")}
+                                </span>
+                              )}
+                              <span className={cn("h-2 w-2 rounded-full", statusConfig[evt.item.status as BrutBoardStatus]?.dot)} />
+                            </div>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </div>
                 </motion.div>
@@ -361,12 +406,19 @@ function BoardItemRow({ item, menuOpen, onToggleMenu, onCloseMenu, onEdit, onDel
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen, onCloseMenu]);
 
-  const formattedDate = item.scheduled_date
-    ? new Date(item.scheduled_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
-    : "Non planifié";
+  const hasPlanning = !!(item.shoot_date || item.edit_date || item.publish_date);
+  const formattedDate = hasPlanning
+    ? (item.publish_date || item.shoot_date || item.edit_date
+        ? new Date((item.publish_date || item.shoot_date || item.edit_date)!).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
+        : "Non planifié")
+    : item.scheduled_date
+      ? new Date(item.scheduled_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
+      : "Non planifié";
 
   return (
-    <div className="group relative flex items-center gap-3 rounded-2xl border border-brutify-gold/10 bg-[#111113]/60 backdrop-blur-sm px-4 py-3.5 transition-all duration-300 hover:border-brutify-gold/30 hover:-translate-y-2 hover:shadow-[0_0_32px_rgba(255,171,0,0.25)] shadow-[0_4px_20px_rgba(0,0,0,0.25)]">
+    <div
+      onClick={() => onEdit(item)}
+      className="group relative flex items-center flex-wrap gap-2 sm:gap-3 rounded-2xl border border-brutify-gold/10 bg-[#111113]/60 backdrop-blur-sm px-4 py-3.5 transition-all duration-200 hover:border-brutify-gold/25 hover:bg-[#111113]/80 shadow-[0_2px_8px_rgba(0,0,0,0.2)] cursor-pointer">
       <Circle className="h-3 w-3 shrink-0 fill-current" style={{ color: cfg?.color ?? "#6B7280" }} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
@@ -384,6 +436,23 @@ function BoardItemRow({ item, menuOpen, onToggleMenu, onCloseMenu, onEdit, onDel
         <Calendar className="h-3 w-3 text-brutify-text-muted" />
         <span className="text-[11px] font-body text-brutify-text-muted whitespace-nowrap">{formattedDate}</span>
       </div>
+      {item.status !== "published" && (() => {
+        const idx = statusOrder.indexOf(item.status as BrutBoardStatus);
+        const next = statusOrder[idx + 1];
+        if (!next) return null;
+        const nextCfg = statusConfig[next];
+        return (
+          <button
+            onClick={e => { e.stopPropagation(); onChangeStatus(item.id, next); }}
+            title={nextCfg.label}
+            className="flex h-7 items-center gap-1 shrink-0 rounded-lg border px-2 py-1 text-[10px] font-body font-medium transition-all duration-150 cursor-pointer hover:-translate-y-0.5 active:scale-[0.96]"
+            style={{ color: nextCfg.color, borderColor: nextCfg.color + "30", backgroundColor: nextCfg.color + "10" }}
+          >
+            {nextCfg.label}
+            <ChevronRight className="h-3 w-3" />
+          </button>
+        );
+      })()}
       <div className="relative" ref={menuRef}>
         <button onClick={e => { e.stopPropagation(); onToggleMenu(); }} className="flex h-7 w-7 items-center justify-center rounded-2xl text-brutify-text-muted hover:text-brutify-text-primary hover:bg-white/[0.05] transition-colors cursor-pointer">
           <MoreHorizontal className="h-4 w-4" />
@@ -493,10 +562,10 @@ function ContentModal({ open, onClose, onSave, onDelete, item, prefillDate, isCr
                 </div>
               </div>
               {/* Date + Time */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-body font-medium text-brutify-text-secondary mb-1.5 block">Date planifiée</label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-sm font-body text-brutify-text-primary outline-none focus:border-brutify-gold/30 [color-scheme:dark] transition-all" />
+                  <DatePicker value={date} onChange={setDate} className="w-full" />
                 </div>
                 <div>
                   <label className="text-xs font-body font-medium text-brutify-text-secondary mb-1.5 block">Heure (opt.)</label>
@@ -509,7 +578,7 @@ function ContentModal({ open, onClose, onSave, onDelete, item, prefillDate, isCr
                 <div className="flex gap-2">
                   {(["instagram","tiktok","youtube"] as Platform[]).map(p => (
                     <button key={p} onClick={() => setPlatform(p)} className={cn("flex-1 flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-body font-medium transition-all cursor-pointer", platform===p ? "border-brutify-gold/20 bg-brutify-gold/[0.08] text-brutify-gold" : "border-white/[0.06] text-brutify-text-muted hover:border-white/[0.1]")}>
-                      {platformIcons[p]}{p.charAt(0).toUpperCase()+p.slice(1)}
+                      {platformSvg[p]("h-4 w-4")}{p.charAt(0).toUpperCase()+p.slice(1)}
                     </button>
                   ))}
                 </div>
@@ -530,7 +599,7 @@ function ContentModal({ open, onClose, onSave, onDelete, item, prefillDate, isCr
               <button onClick={onClose} className="flex-1 rounded-xl border border-white/[0.06] py-3 text-sm font-body font-medium text-brutify-text-muted hover:text-brutify-text-primary hover:border-white/[0.1] transition-all cursor-pointer">Annuler</button>
               <button onClick={handleSubmit} disabled={!title.trim()||isCreating}
                 className={cn("flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-body font-semibold transition-all cursor-pointer", title.trim()&&!isCreating ? "bg-gradient-to-b from-brutify-gold to-brutify-gold-dark text-black hover:shadow-[0_0_20px_rgba(255,171,0,0.3)]" : "bg-white/[0.04] text-brutify-text-muted cursor-not-allowed")}>
-                {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {isCreating ? <Loading variant="icon" size="sm" className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                 {isEdit ? "Enregistrer" : "Créer"}
               </button>
             </div>

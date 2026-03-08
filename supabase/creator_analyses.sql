@@ -40,17 +40,25 @@ CREATE POLICY "creator_analyses_update_own"
 
 -- Ajouter 'creator_analysis' aux actions autorisées des credit_transactions
 -- (DROP + re-CREATE du constraint car ALTER CHECK n'existe pas en PG)
+-- Inclut toutes les actions utilisées dans l'app + activation_bonus_* (dynamique)
 ALTER TABLE public.credit_transactions
   DROP CONSTRAINT IF EXISTS credit_transactions_action_check;
 
 ALTER TABLE public.credit_transactions
   ADD CONSTRAINT credit_transactions_action_check
-  CHECK (action IN (
-    'script_generation', 'transcription', 'video_analysis',
-    'credit_purchase', 'monthly_reset', 'plan_upgrade',
-    'inspire_vault', 'scraping', 'creator_analysis',
-    'bp_borrow', 'rollover', 'activation_bonus', 'early_upgrade_bonus'
-  ));
+  CHECK (
+    action IN (
+      'script_generation', 'transcription', 'video_analysis', 'free_transcription', 'auto_transcription',
+      'credit_purchase', 'monthly_reset', 'plan_upgrade', 'plan_downgrade',
+      'plan_upgrade_dev', 'plan_downgrade_dev',
+      'inspire_vault', 'idea_generation', 'scraping', 'instagram_profile',
+      'creator_analysis',
+      'borrow', 'bp_borrow', 'rollover', 'borrow_repayment',
+      'activation_bonus', 'early_upgrade_bonus', 'activation_bonus_early_upgrade',
+      'retention_discount', 'retention_pause'
+    )
+    OR action LIKE 'activation_bonus_%'
+  );
 
 -- Ajouter le compteur d'analyses gratuites au profil
 ALTER TABLE public.profiles

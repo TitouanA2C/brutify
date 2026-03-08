@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Check, ChevronRight, Loader2, Sparkles, Instagram, Youtube } from "lucide-react"
+import { Check, ChevronRight, Sparkles, Instagram, Youtube } from "lucide-react"
+import { Loading } from "@/components/ui/Loading"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/useUser"
 import { BrutifyLogo } from "@/components/ui/BrutifyLogo"
@@ -160,7 +161,7 @@ export default function OnboardingPage() {
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl border border-white/[0.06] bg-[#111113]/80 backdrop-blur-xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_40px_rgba(255,171,0,0.04)]">
+        <div className="rounded-2xl border border-white/[0.06] bg-[#111113]/80 backdrop-blur-xl p-5 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_40px_rgba(255,171,0,0.04)]">
           <AnimatePresence mode="wait">
             {step === 0 && (
               <StepNiche key="niche" selected={selectedNiche} onSelect={setSelectedNiche} onNext={() => setStep(1)} />
@@ -406,7 +407,7 @@ function StepCreators({ niche, creators, loading, selected, onToggle, onNext, on
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <Loader2 className="h-6 w-6 animate-spin text-brutify-gold" />
+          <Loading variant="page" size="md" className="text-brutify-gold" />
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 h-16">
@@ -661,7 +662,7 @@ function StepReady({ niche, creatorsCount, instagramHandle, selectedPlan, finish
         <motion.button onClick={onFinish} disabled={finishing} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
           className="flex-1 rounded-xl bg-gold-gradient px-5 py-3 text-sm font-body font-bold text-brutify-bg shadow-[0_0_40px_rgba(255,171,0,0.35)] hover:shadow-[0_0_60px_rgba(255,171,0,0.5)] transition-shadow duration-200 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
         >
-          {finishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Sparkles className="h-4 w-4" />Commencer</>}
+          {finishing ? <Loading variant="icon" size="sm" className="h-4 w-4" /> : <><Sparkles className="h-4 w-4" />Commencer</>}
         </motion.button>
       </div>
     </motion.div>

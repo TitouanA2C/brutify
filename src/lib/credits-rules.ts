@@ -70,12 +70,12 @@ export const ACTIVATION_BONUSES: ActivationBonus[] = [
 
 // ─── Bonus upgrade anticipé ──────────────────────────────────────────────────
 
-export const EARLY_UPGRADE_BONUS = {
+export const EARLY_UPGRADE_BONUS: ActivationBonus = {
   id: "early_upgrade",
   name: "Upgrade anticipé",
   description: "Upgrade avant la fin de l'essai gratuit",
-  reward: 300, // 300 BP bonus
-  daysRequired: 7, // Doit être dans les 7 premiers jours
+  reward: 300,
+  condition: "early_upgrade_within_7_days",
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

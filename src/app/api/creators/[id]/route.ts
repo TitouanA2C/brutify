@@ -66,8 +66,6 @@ export async function GET(
     .order("outlier_score", { ascending: false })
     .limit(200)
 
-  console.log(`[GET /api/creators/${params.id}] videos=${videos?.length ?? 0} err=${videosErr?.message ?? "none"}`)
-
   // Recalculate stats from existing videos if growth_rate is missing/zero
   const shouldRecalc = (videos?.length ?? 0) >= 6 && (!creator.growth_rate || creator.growth_rate === 0)
   if (shouldRecalc && videos) {

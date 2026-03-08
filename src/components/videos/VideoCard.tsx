@@ -14,6 +14,7 @@ import {
   ScrollText,
   Bookmark,
   FileText,
+  Brain,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import type { Video, Creator } from "@/lib/types";
@@ -28,6 +29,7 @@ interface VideoCardProps {
   video: Video;
   creator: Creator | undefined;
   onClick: (video: Video) => void;
+  onForge?: (video: Video) => void;
 }
 
 function OutlierBadge({ score }: { score: number }) {
@@ -50,7 +52,7 @@ function OutlierBadge({ score }: { score: number }) {
   return <Badge variant="neutral">{score}x</Badge>;
 }
 
-export function VideoCard({ video, creator, onClick }: VideoCardProps) {
+export function VideoCard({ video, creator, onClick, onForge }: VideoCardProps) {
   const [imgError, setImgError] = useState(false);
   const proxiedThumbnail = proxyImg(video.thumbnailUrl);
   const showThumbnail = !!proxiedThumbnail && !imgError;
@@ -69,7 +71,7 @@ export function VideoCard({ video, creator, onClick }: VideoCardProps) {
            style={{ background: '#FFAB00' }} />
       {/* Thumbnail */}
       <div
-        className="relative shrink-0 w-[100px] h-[140px] rounded-2xl overflow-hidden ring-1 ring-white/[0.04] group-hover:ring-white/[0.08] transition-all"
+        className="relative shrink-0 w-[80px] h-[112px] sm:w-[100px] sm:h-[140px] rounded-2xl overflow-hidden ring-1 ring-white/[0.04] group-hover:ring-white/[0.08] transition-all"
         style={{ backgroundColor: video.thumbnailColor + "18" }}
       >
         {showThumbnail ? (
@@ -165,12 +167,24 @@ export function VideoCard({ video, creator, onClick }: VideoCardProps) {
           <button
             onClick={(e) => {
               e.stopPropagation();
+              onForge ? onForge(video) : onClick(video);
             }}
             className="inline-flex items-center gap-1.5 rounded-xl bg-gold-gradient px-3 py-2 text-[11px] font-body font-semibold text-brutify-bg transition-all duration-150 hover:shadow-[0_0_20px_rgba(255,171,0,0.15)] hover:scale-102 active:scale-98 cursor-pointer"
             style={{ willChange: 'transform' }}
           >
             <ScrollText className="h-3 w-3" />
             Forger un script
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick(video);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-brutify-gold/15 bg-brutify-gold/[0.06] px-3 py-2 text-[11px] font-body font-semibold text-brutify-gold/80 transition-all duration-150 hover:border-brutify-gold/25 hover:bg-brutify-gold/[0.1] hover:text-brutify-gold hover:shadow-[0_0_12px_rgba(255,171,0,0.08)] hover:scale-102 active:scale-98 cursor-pointer"
+            style={{ willChange: 'transform' }}
+          >
+            <Brain className="h-3 w-3" />
+            Analyse IA
           </button>
           <button
             onClick={(e) => {
@@ -182,18 +196,6 @@ export function VideoCard({ video, creator, onClick }: VideoCardProps) {
             <Bookmark className="h-3 w-3" />
             Vault
           </button>
-          {video.hasTranscript && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] font-body font-medium text-brutify-text-secondary transition-all duration-150 hover:border-white/[0.1] hover:bg-white/[0.04] hover:text-brutify-text-primary hover:scale-102 active:scale-98 cursor-pointer"
-              style={{ willChange: 'transform' }}
-            >
-              <FileText className="h-3 w-3" />
-              Transcript
-            </button>
-          )}
         </div>
       </div>
     </motion.div>

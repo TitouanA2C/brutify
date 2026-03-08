@@ -82,7 +82,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   const { profile } = useUser();
   const { credits, maxCredits } = useCredits();
+  const profileLoaded = !!profile?.id;
   const pct = maxCredits > 0 ? Math.round((credits / maxCredits) * 100) : 0;
+  const isLow = profileLoaded && pct <= 10;
+  const isWarning = profileLoaded && pct <= 20;
+  const isEmpty = profileLoaded && credits === 0;
   const borrowedCredits = profile?.borrowed_credits ?? 0;
   const rolloverCredits = profile?.rollover_credits ?? 0;
 
@@ -240,12 +244,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "flex h-6 w-6 items-center justify-center rounded-md",
-                  pct <= 10 ? "bg-red-500/20 animate-pulse" : "bg-brutify-gold/[0.1]"
+                  isLow ? "bg-red-500/20 animate-pulse" : "bg-brutify-gold/[0.1]"
                 )}>
                   <CreditCard
                     className={cn(
                       "h-3 w-3",
-                      pct <= 10 ? "text-red-500" : "text-brutify-gold"
+                      isLow ? "text-red-500" : "text-brutify-gold"
                     )}
                     aria-hidden="true"
                   />
@@ -253,7 +257,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <span className="text-[11px] font-body font-semibold uppercase tracking-wider text-brutify-text-muted">
                   Brutpoints
                 </span>
-                {pct <= 10 && (
+                {isLow && (
                   <span className="text-[8px] font-bold text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wide animate-pulse">
                     Faible
                   </span>
@@ -262,9 +266,9 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               <div className="text-right">
                 <span className={cn(
                   "font-display text-xl leading-none tracking-wider",
-                  pct <= 10 ? "text-red-400" : "text-gold-gradient"
+                  isLow ? "text-red-400" : "text-gold-gradient"
                 )}>
-                  {credits}
+                  {profileLoaded ? credits : "—"}
                 </span>
                 {(borrowedCredits > 0 || rolloverCredits > 0) && (
                   <div className="text-[9px] font-body text-white/50 mt-0.5 space-y-0.5">
@@ -294,13 +298,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               >
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(pct, 100)}%` }}
+                  animate={{ width: profileLoaded ? `${Math.min(pct, 100)}%` : "0%" }}
                   transition={{ duration: 1, delay: 0.3, ease: expoOut }}
                   className={cn(
                     "h-full rounded-full",
-                    pct > 20
+                    !isWarning
                       ? "bg-gradient-to-r from-brutify-gold-dark via-brutify-gold to-[#FFD700] shadow-[0_0_15px_rgba(255,171,0,0.5)]"
-                      : pct > 10
+                      : !isLow
                         ? "bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.5)]"
                         : "bg-gradient-to-r from-red-600 via-red-500 to-red-400 shadow-[0_0_20px_rgba(239,68,68,0.7)] animate-pulse"
                   )}
@@ -309,9 +313,9 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               <div className="flex items-center justify-between mt-1.5">
                 <span className={cn(
                   "text-[10px] font-body",
-                  pct <= 10 ? "text-red-400 font-semibold" : "text-brutify-text-muted/60"
+                  isLow ? "text-red-400 font-semibold" : "text-brutify-text-muted/60"
                 )}>
-                  {pct <= 10 ? "⚠️ Critique" : pct <= 20 ? "⚠ Attention" : `${pct}% restant`}
+                  {!profileLoaded ? "Chargement…" : isLow ? "⚠️ Critique" : isWarning ? "⚠ Attention" : `${pct}% restant`}
                 </span>
                 <span className="text-[10px] font-body text-brutify-text-muted/40">
                   {maxCredits} max
@@ -320,21 +324,21 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             </div>
 
             {/* Alerte BP faibles — compact sidebar */}
-            {pct <= 20 && (
+            {isWarning && (
               <div className={cn(
                 "rounded-lg border p-2.5 mb-2",
-                credits === 0
+                isEmpty
                   ? "border-red-500/25 bg-red-500/[0.06]"
                   : "border-orange-500/20 bg-orange-500/[0.04]"
               )}>
                 <p className={cn(
                   "text-[10px] font-body font-semibold mb-1",
-                  credits === 0 ? "text-red-400" : "text-orange-400"
+                  isEmpty ? "text-red-400" : "text-orange-400"
                 )}>
-                  {credits === 0 ? "Plus de BrutPoints !" : "BP bientôt épuisés"}
+                  {isEmpty ? "Plus de BrutPoints !" : "BP bientôt épuisés"}
                 </p>
                 <p className="text-[9px] font-body text-white/40 leading-relaxed">
-                  {credits === 0
+                  {isEmpty
                     ? "Recharge pour continuer à créer."
                     : `Plus que ${credits} BP restants.`
                   }
@@ -347,13 +351,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               onClick={onMobileClose}
               className={cn(
                 "flex items-center justify-center gap-1.5 w-full rounded-lg border py-2 text-[11px] font-body font-semibold transition-all duration-200",
-                pct <= 10
+                isLow
                   ? "bg-red-500/[0.12] border-red-500/30 text-red-400 hover:bg-red-500/[0.2] hover:border-red-500/50 animate-pulse"
                   : "bg-brutify-gold/[0.08] border-brutify-gold/[0.15] text-brutify-gold/90 hover:text-brutify-gold hover:bg-brutify-gold/[0.15] hover:border-brutify-gold/30 hover:shadow-[0_0_20px_rgba(255,171,0,0.2)] hover:scale-[1.02]"
               )}
             >
-              {pct <= 10 ? <Zap className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
-              {pct <= 10 ? "Recharger maintenant" : "Acheter des Brutpoints"}
+              {isLow ? <Zap className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+              {isLow ? "Recharger maintenant" : "Acheter des Brutpoints"}
             </Link>
           </div>
         </div>

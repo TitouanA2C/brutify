@@ -4,6 +4,9 @@ import { checkCredits, consumeCredits, getUserPlan, COSTS } from "@/lib/credits"
 import { PLAN_FEATURES } from "@/lib/plans"
 import { analyzeCreator, type AnalysisVideoData } from "@/lib/ai/creator-analysis"
 import { transcribeVideo } from "@/lib/ai/whisper"
+import { resolveVideoFileUrl, isPlaceholderTranscript } from "@/lib/video-url-resolver"
+
+export const maxDuration = 300
 
 const MAX_VIDEOS_TO_ANALYZE = 30
 const MIN_VIDEOS_REQUIRED = 5
@@ -107,23 +110,23 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  console.log("[full-analysis] 🚀 Début de l'analyse concurrentielle")
+  const t0 = Date.now()
+  const log = (step: string, extra?: Record<string, unknown>) =>
+    console.log(`[VEILLE] ${step} (${Date.now() - t0}ms)`, extra ? JSON.stringify(extra) : "")
+
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
 
   const creatorId = params.id
-  console.log("[full-analysis] 👤 Creator ID:", creatorId)
-  console.log("[full-analysis] 🔑 User ID:", user.id)
-  
+  log("START", { creatorId, userId: user.id })
+
   const plan = await getUserPlan(user.id)
-  console.log("[full-analysis] 📦 Plan utilisateur:", plan)
   const planFeatures = PLAN_FEATURES[plan]
+  log("plan resolved", { plan })
 
   const serviceClient = createServiceClient()
 
-  // Récupérer le créateur
-  console.log("[full-analysis] 📥 Récupération du créateur...")
   const { data: creator } = await serviceClient
     .from("creators")
     .select("id, name, handle, niche, followers, platform")
@@ -131,46 +134,77 @@ export async function POST(
     .single()
 
   if (!creator) {
-    console.error("[full-analysis] ❌ Créateur non trouvé")
+    log("FAIL creator not found")
     return NextResponse.json({ error: "Créateur non trouvé" }, { status: 404 })
   }
-  console.log("[full-analysis] ✅ Créateur trouvé:", creator.name, `(@${creator.handle})`)
+  log("creator loaded", { name: creator.name, handle: creator.handle })
 
-  // Récupérer les top vidéos par outlier score
-  console.log("[full-analysis] 📹 Récupération des vidéos...")
-  const { data: videos } = await serviceClient
+  const { data: videosRaw, error: videosErr } = await serviceClient
     .from("videos")
     .select("id, title, description, url, views, likes, comments, shares, outlier_score, duration, posted_at")
     .eq("creator_id", creatorId)
     .order("outlier_score", { ascending: false })
     .limit(MAX_VIDEOS_TO_ANALYZE)
 
-  console.log("[full-analysis] 📹 Vidéos trouvées:", videos?.length ?? 0)
-  
+  if (videosErr) {
+    log("FAIL loading videos", { error: videosErr.message })
+  }
+
+  const videos = (videosRaw ?? []) as Array<{
+    id: string; title: string | null; description: string | null; url: string | null;
+    views: number | null; likes: number | null; comments: number | null; shares: number | null;
+    outlier_score: number | string | null; duration: number | null; posted_at: string | null;
+    media_url?: string | null;
+  }>
+
+  // Tenter de récupérer media_url séparément (colonne optionnelle)
+  if (videos.length > 0) {
+    try {
+      const ids = videos.map(v => v.id)
+      const { data: mediaRows } = await serviceClient
+        .from("videos")
+        .select("id, media_url" as never)
+        .in("id", ids) as { data: Array<{ id: string; media_url?: string | null }> | null }
+
+      if (mediaRows) {
+        const mediaMap = new Map(mediaRows.map(r => [r.id, r.media_url]))
+        for (const v of videos) {
+          v.media_url = mediaMap.get(v.id) ?? null
+        }
+      }
+    } catch {
+      log("media_url column not available (non-blocking)")
+    }
+  }
+
   if (!videos || videos.length < MIN_VIDEOS_REQUIRED) {
-    console.error("[full-analysis] ❌ Pas assez de vidéos:", videos?.length ?? 0)
+    log("FAIL not enough videos", { count: videos?.length ?? 0 })
     return NextResponse.json(
       { error: `Minimum ${MIN_VIDEOS_REQUIRED} vidéos nécessaires pour l'analyse` },
       { status: 400 }
     )
   }
+  log("videos loaded", { count: videos.length })
 
-  // Récupérer les transcriptions existantes
   const videoIds = videos.map((v) => v.id)
-  console.log("[full-analysis] 📝 Vérification des transcriptions existantes...")
   const { data: existingTranscripts } = await serviceClient
     .from("transcriptions")
     .select("video_id, content")
     .in("video_id", videoIds)
 
-  const transcriptMap = new Map(
-    existingTranscripts?.map((t) => [t.video_id, t.content]) ?? []
-  )
-  console.log("[full-analysis] ✅ Transcriptions existantes:", transcriptMap.size)
+  const transcriptMap = new Map<string, string>()
+  const placeholderIds: string[] = []
 
-  // Calculer le coût
+  for (const t of existingTranscripts ?? []) {
+    if (isPlaceholderTranscript(t.content)) {
+      placeholderIds.push(t.video_id)
+    } else {
+      transcriptMap.set(t.video_id, t.content)
+    }
+  }
+
   const untranscribedVideos = videos.filter((v) => !transcriptMap.has(v.id))
-  console.log("[full-analysis] 🎙️ Vidéos à transcrire:", untranscribedVideos.length)
+  log("transcripts check", { cached: transcriptMap.size, placeholders: placeholderIds.length, toTranscribe: untranscribedVideos.length })
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -190,23 +224,17 @@ export async function POST(
   const baseCost = isFreeAnalysis ? 0 : COSTS.creator_analysis
   const transcriptionCost = untranscribedVideos.length * COSTS.transcription
   const totalCost = baseCost + transcriptionCost
-  console.log("[full-analysis] 💰 Coût total:", totalCost, "BP (base:", baseCost, "+ transcription:", transcriptionCost, ")")
-  console.log("[full-analysis] 🎁 Analyse gratuite:", isFreeAnalysis)
+  log("cost computed", { baseCost, transcriptionCost, totalCost, isFreeAnalysis })
 
-  // Vérifier les crédits
   const { ok: canAfford } = await checkCredits(user.id, totalCost)
-  console.log("[full-analysis] 💳 Crédits suffisants:", canAfford)
   if (!canAfford) {
-    console.error("[full-analysis] ❌ Crédits insuffisants")
+    log("FAIL insufficient credits")
     return NextResponse.json(
       { error: `Crédits insuffisants. Coût: ${totalCost} BP`, cost: totalCost },
       { status: 402 }
     )
   }
 
-  // Créer/mettre à jour l'entrée d'analyse en "processing"
-  // Utiliser le client user pour respecter les RLS policies
-  console.log("[full-analysis] 📊 Création de l'entrée en DB...")
   const { data: analysisRow, error: upsertError } = await supabase
     .from("creator_analyses")
     .upsert({
@@ -222,29 +250,36 @@ export async function POST(
     .single()
 
   if (upsertError || !analysisRow) {
-    console.error("[full-analysis] ❌ Erreur création analyse en DB")
-    console.error("[full-analysis] Upsert error:", JSON.stringify(upsertError, null, 2))
+    log("FAIL upsert analysis row", { error: upsertError?.message })
     return NextResponse.json({ 
       error: "Erreur lors de la création de l'analyse",
       details: upsertError?.message ?? "Erreur inconnue",
     }, { status: 500 })
   }
-  console.log("[full-analysis] ✅ Analyse créée, ID:", analysisRow.id)
+  log("analysis row created", { id: analysisRow.id })
 
   try {
-    // ── Étape 1: Transcrire les vidéos manquantes (par lots parallèles) ──
+    // ── Transcriptions ──────────────────────────────────────────────────────
     if (untranscribedVideos.length > 0) {
-      console.log("[full-analysis] 🎙️ Début de la transcription de", untranscribedVideos.length, "vidéos...")
       for (let i = 0; i < untranscribedVideos.length; i += PARALLEL_TRANSCRIPTIONS) {
         const batch = untranscribedVideos.slice(i, i + PARALLEL_TRANSCRIPTIONS)
-        console.log("[full-analysis] 🎙️ Batch", Math.floor(i / PARALLEL_TRANSCRIPTIONS) + 1, ":", batch.length, "vidéos")
+        const batchIdx = Math.floor(i / PARALLEL_TRANSCRIPTIONS) + 1
+        const totalBatches = Math.ceil(untranscribedVideos.length / PARALLEL_TRANSCRIPTIONS)
+        log(`transcription batch ${batchIdx}/${totalBatches}`, { size: batch.length })
+
         const results = await Promise.allSettled(
           batch.map(async (video) => {
-            if (!video.url) return { videoId: video.id, transcript: null }
+            if (!video.url && !video.media_url) return { videoId: video.id, transcript: null }
             try {
-              console.log("[full-analysis] 🎙️ Transcription vidéo:", video.title?.slice(0, 40))
-              const transcript = await transcribeVideo(video.url)
-              // Sauvegarder la transcription
+              let fileUrl = video.media_url || null
+              if (!fileUrl && video.url) {
+                fileUrl = await resolveVideoFileUrl(video.url, creator.platform)
+              }
+              if (!fileUrl) {
+                log(`no direct URL for video ${video.id}`, { postUrl: (video.url ?? "").slice(0, 80) })
+                return { videoId: video.id, transcript: null }
+              }
+              const transcript = await transcribeVideo(fileUrl)
               await serviceClient
                 .from("transcriptions")
                 .upsert({
@@ -253,28 +288,27 @@ export async function POST(
                   content: transcript,
                   language: "fr",
                 }, { onConflict: "video_id" })
-              console.log("[full-analysis] ✅ Transcription OK:", video.id)
               return { videoId: video.id, transcript }
             } catch (err) {
-              console.error("[full-analysis] ❌ Erreur transcription:", video.id, err)
+              log(`transcription failed for video ${video.id}`, { error: (err as Error).message })
               return { videoId: video.id, transcript: null }
             }
           })
         )
 
+        let batchSuccess = 0
         for (const result of results) {
           if (result.status === "fulfilled" && result.value.transcript) {
             transcriptMap.set(result.value.videoId, result.value.transcript)
+            batchSuccess++
           }
         }
+        log(`transcription batch ${batchIdx} done`, { success: batchSuccess, failed: batch.length - batchSuccess })
       }
-      console.log("[full-analysis] ✅ Transcriptions terminées. Total:", transcriptMap.size)
-    } else {
-      console.log("[full-analysis] ⏭️ Aucune transcription nécessaire")
+      log("all transcriptions done", { total: transcriptMap.size })
     }
 
-    // ── Étape 2: Préparer les données pour Claude ──
-    console.log("[full-analysis] 📋 Préparation des données pour Claude...")
+    // ── Claude Analysis ─────────────────────────────────────────────────────
     const analysisVideos: AnalysisVideoData[] = videos.map((v) => ({
       title: v.title ?? "Sans titre",
       caption: v.description ?? "",
@@ -287,10 +321,10 @@ export async function POST(
       duration: v.duration ?? 0,
       posted_at: v.posted_at ?? "",
     }))
-    console.log("[full-analysis] 📋 Vidéos avec transcription:", analysisVideos.filter(v => v.transcript).length)
 
-    // ── Étape 3: Appeler Claude pour l'analyse ──
-    console.log("[full-analysis] 🤖 Appel à Claude Sonnet 4.6...")
+    const videosWithTranscript = analysisVideos.filter(v => v.transcript).length
+    log("calling Claude analyzeCreator", { videos: analysisVideos.length, withTranscript: videosWithTranscript })
+
     const { analysis, usage } = await analyzeCreator({
       creatorName: creator.name ?? creator.handle,
       creatorHandle: creator.handle,
@@ -300,18 +334,15 @@ export async function POST(
       userNiche: profile?.niche ?? "Non définie",
       videos: analysisVideos,
     })
-    console.log("[full-analysis] ✅ Analyse Claude terminée. Tokens:", usage.promptTokens + usage.completionTokens)
+    log("Claude analysis done", { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens })
 
-    // ── Étape 4: Consommer les crédits ──
+    // ── Credits & free analysis ─────────────────────────────────────────────
     if (totalCost > 0) {
-      console.log("[full-analysis] 💰 Consommation de", totalCost, "BP...")
       await consumeCredits(user.id, totalCost, "creator_analysis", analysisRow.id)
-      console.log("[full-analysis] ✅ Crédits consommés")
+      log("credits consumed", { totalCost })
     }
 
-    // Mettre à jour le compteur d'analyses gratuites
     if (isFreeAnalysis) {
-      console.log("[full-analysis] 🎁 Mise à jour du compteur d'analyses gratuites...")
       const resetAt = new Date(profile?.free_analyses_reset_at ?? 0)
       const now = new Date()
       const daysSinceReset = (now.getTime() - resetAt.getTime()) / (1000 * 60 * 60 * 24)
@@ -323,14 +354,14 @@ export async function POST(
           free_analyses_reset_at: daysSinceReset > 30 ? now.toISOString() : profile?.free_analyses_reset_at,
         })
         .eq("id", user.id)
+      log("free analysis counter updated")
     }
 
-    // ── Étape 5: Sauvegarder le résultat ──
-    console.log("[full-analysis] 💾 Sauvegarde de l'analyse en DB...")
+    // ── Save completed analysis ─────────────────────────────────────────────
     const { error: updateError } = await supabase
       .from("creator_analyses")
       .update({
-        analysis,
+        analysis: analysis as unknown as Record<string, unknown>,
         status: "completed",
         tokens_used: usage.promptTokens + usage.completionTokens,
         updated_at: new Date().toISOString(),
@@ -338,10 +369,132 @@ export async function POST(
       .eq("id", analysisRow.id)
 
     if (updateError) {
-      console.error("[full-analysis] ⚠️ Erreur sauvegarde finale:", updateError)
+      log("FAIL saving analysis to DB", { error: updateError.message })
+      await supabase
+        .from("creator_analyses")
+        .update({
+          status: "failed",
+          error_message: updateError.message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", analysisRow.id)
+      return NextResponse.json(
+        { error: "L'analyse a échoué lors de l'enregistrement.", details: updateError.message },
+        { status: 500 }
+      )
+    }
+    log("analysis saved to DB")
+
+    // ── Persist content ideas to board (status: idea) ──────────────────────
+    try {
+      const aForIdeas = analysis as unknown as Record<string, unknown>
+      const topics = aForIdeas.topics as {
+        outlier_topics?: Array<{ topic: string; subject?: string; vision?: string; why_it_works: string; best_video_title?: string }>;
+      } | undefined
+
+      if (topics?.outlier_topics?.length) {
+        const boardItems = topics.outlier_topics.slice(0, 10).map(t => {
+          const title = t.subject || t.topic
+          const notes = [
+            t.vision || t.why_it_works,
+            t.best_video_title ? `Ref: ${t.best_video_title}` : null,
+            `Via @${creator.handle}`,
+          ].filter(Boolean).join("\n\n")
+          return {
+            user_id: user.id,
+            title,
+            status: "idea" as const,
+            notes,
+            platform: (creator.platform as "instagram" | "tiktok" | "youtube") || null,
+          }
+        })
+        const { error: boardErr } = await supabase.from("board_items").insert(boardItems)
+        log("board ideas persisted", { count: boardItems.length, error: boardErr?.message ?? null })
+      }
+    } catch (err) {
+      log("board ideas failed (non-blocking)", { error: (err as Error).message })
     }
 
-    console.log("[full-analysis] 🎉 SUCCÈS ! Analyse complète terminée")
+    // ── Persist hooks & structures as user_templates ────────────────────────
+    try {
+      const templateItems: Array<{
+        user_id: string; kind: string; name: string; template: string;
+        hook_type?: string; skeleton?: string; description?: string;
+        source: string; source_id: string; performance_score: number;
+      }> = []
+
+      const a = analysis as unknown as Record<string, unknown>
+      const hooks = a.hooks as {
+        reusable_templates?: Array<{ type: string; template: string; performance_score?: number }>;
+        top_5?: Array<{ hook_text: string; type: string; why_it_works: string; outlier_score?: number }>;
+      } | undefined
+
+      if (hooks?.reusable_templates) {
+        for (const h of hooks.reusable_templates) {
+          templateItems.push({
+            user_id: user.id,
+            kind: "hook",
+            name: h.type,
+            template: h.template,
+            hook_type: h.type,
+            source: "veille",
+            source_id: creatorId,
+            performance_score: h.performance_score ?? 70,
+          })
+        }
+      }
+      if (hooks?.top_5) {
+        for (const h of hooks.top_5) {
+          const existing = templateItems.find(t => t.template === h.hook_text)
+          if (!existing) {
+            templateItems.push({
+              user_id: user.id,
+              kind: "hook",
+              name: h.type,
+              template: h.hook_text,
+              hook_type: h.type,
+              source: "veille",
+              source_id: creatorId,
+              performance_score: h.outlier_score ?? 80,
+            })
+          }
+        }
+      }
+
+      const structures = a.script_structures as {
+        detected_structures?: Array<{
+          name: string; skeleton: string; frequency: number;
+          avg_outlier_score?: number; example?: string;
+        }>;
+      } | undefined
+
+      if (structures?.detected_structures) {
+        for (const s of structures.detected_structures) {
+          templateItems.push({
+            user_id: user.id,
+            kind: "structure",
+            name: s.name,
+            template: s.skeleton,
+            skeleton: s.skeleton,
+            description: s.example ?? `Fréquence: ${s.frequency}×`,
+            source: "veille",
+            source_id: creatorId,
+            performance_score: s.avg_outlier_score ?? 50,
+          })
+        }
+      }
+
+      const validTemplates = templateItems.filter(t => t.name && t.template)
+      if (validTemplates.length > 0) {
+        const { error: tplErr } = await supabase.from("user_templates").insert(validTemplates)
+        log("templates persisted", { hooks: validTemplates.filter(t => t.kind === "hook").length, structures: validTemplates.filter(t => t.kind === "structure").length, skipped: templateItems.length - validTemplates.length, error: tplErr?.message ?? null })
+      }
+    } catch (err) {
+      log("templates failed (non-blocking)", { error: (err as Error).message })
+    }
+
+    log("SUCCESS — returning response", { videosAnalyzed: videos.length, transcripts: transcriptMap.size })
+
     return NextResponse.json({
       analysis,
       videosAnalyzed: videos.length,
@@ -352,24 +505,29 @@ export async function POST(
     })
 
   } catch (error) {
-    // Logger l'erreur détaillée
-    console.error("[full-analysis] ❌❌❌ ERREUR CRITIQUE ❌❌❌")
-    console.error("[full-analysis] Error type:", error?.constructor?.name)
-    console.error("[full-analysis] Error message:", error instanceof Error ? error.message : String(error))
-    console.error("[full-analysis] Error stack:", error instanceof Error ? error.stack : "No stack")
-    console.error("[full-analysis] Full error object:", JSON.stringify(error, null, 2))
-    
-    // Marquer comme échoué (utiliser client user pour RLS)
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue"
-    console.log("[full-analysis] 💾 Marquage de l'analyse comme 'failed'...")
-    await supabase
+    const errorStack = error instanceof Error ? error.stack : undefined
+    log("FATAL ERROR", { message: errorMessage, stack: errorStack })
+
+    const { data: currentRow } = await supabase
       .from("creator_analyses")
-      .update({
-        status: "failed",
-        error_message: errorMessage,
-        updated_at: new Date().toISOString(),
-      })
+      .select("status")
       .eq("id", analysisRow.id)
+      .single()
+
+    if (currentRow?.status !== "completed") {
+      await supabase
+        .from("creator_analyses")
+        .update({
+          status: "failed",
+          error_message: errorMessage,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", analysisRow.id)
+      log("analysis marked as failed in DB")
+    } else {
+      log("analysis already completed in DB — not overwriting")
+    }
 
     return NextResponse.json(
       { 

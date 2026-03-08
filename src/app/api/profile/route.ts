@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 
 const PROFILE_FIELDS = "id, email, full_name, avatar_url, plan, credits, niche, tone_of_voice, writing_style, instagram_handle, tiktok_handle, youtube_handle, created_at"
 
@@ -135,6 +135,27 @@ export async function PATCH(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ profile: data })
+}
+
+export async function DELETE() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
+
+  const serviceSupabase = createServiceClient()
+
+  // CASCADE on profiles FK handles related data cleanup
+  const { error } = await serviceSupabase
+    .from("profiles")
+    .delete()
+    .eq("id", user.id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Delete auth user
+  await serviceSupabase.auth.admin.deleteUser(user.id)
+
+  return NextResponse.json({ success: true })
 }
 
 // ── Types (shared with client via inference) ────────────────────────────────

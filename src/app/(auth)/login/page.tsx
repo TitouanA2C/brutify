@@ -4,10 +4,11 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { BrutifyLogo } from "@/components/ui/BrutifyLogo"
 import { Input } from "@/components/ui"
+import { Loading } from "@/components/ui/Loading"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -67,7 +68,7 @@ export default function LoginPage() {
       transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
       className="w-full max-w-[420px]"
     >
-      <div className="rounded-2xl border border-brutify-gold/20 bg-[#111113]/80 backdrop-blur-xl p-8 shadow-[0_0_40px_rgba(255,171,0,0.15),0_8px_32px_rgba(0,0,0,0.4)]">
+      <div className="rounded-2xl border border-brutify-gold/20 bg-[#111113]/80 backdrop-blur-xl p-5 sm:p-8 shadow-[0_0_40px_rgba(255,171,0,0.15),0_8px_32px_rgba(0,0,0,0.4)]">
         <div className="flex flex-col items-center gap-2 mb-8">
           <BrutifyLogo size="lg" />
           <p className="text-sm text-brutify-text-secondary font-body">
@@ -135,7 +136,7 @@ export default function LoginPage() {
             className="mt-2 w-full rounded-xl bg-gold-gradient px-5 py-3 text-sm font-body font-bold text-brutify-bg shadow-[0_0_50px_rgba(255,171,0,0.3)] hover:shadow-[0_0_70px_rgba(255,171,0,0.5)] transition-shadow duration-200 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
           >
             {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loading variant="icon" size="sm" className="h-4 w-4" />
             ) : (
               "Se connecter"
             )}
@@ -161,7 +162,7 @@ export default function LoginPage() {
           className="w-full rounded-xl border border-white/[0.1] bg-white/[0.03] px-5 py-3 text-sm font-body font-semibold text-brutify-text-primary hover:bg-white/[0.06] hover:border-white/[0.15] transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-3"
         >
           {googleLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loading variant="icon" size="sm" className="h-4 w-4" />
           ) : (
             <>
               <GoogleIcon />

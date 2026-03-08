@@ -65,7 +65,6 @@ export async function POST(request: Request) {
         amount: 0,
         action: "retention_discount",
         reference_id: coupon.id,
-        metadata: { offer: "30% off for 3 months" },
       })
 
       return NextResponse.json({
@@ -95,7 +94,6 @@ export async function POST(request: Request) {
         amount: 0,
         action: "retention_pause",
         reference_id: profile.stripe_subscription_id,
-        metadata: { pause_until: pauseEnd.toISOString() },
       })
 
       return NextResponse.json({
@@ -131,7 +129,6 @@ export async function POST(request: Request) {
         amount: 0,
         action: "plan_downgrade",
         reference_id: profile.stripe_subscription_id,
-        metadata: { from_plan: profile.plan, to_plan: "creator" },
       })
 
       return NextResponse.json({
