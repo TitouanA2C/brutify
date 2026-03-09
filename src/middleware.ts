@@ -14,8 +14,16 @@ function forwardCookies(
 }
 
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse, user, supabase } = await updateSession(request)
   const { pathname } = request.nextUrl
+
+  // Le callback gère ses propres cookies (exchangeCodeForSession).
+  // Si updateSession tourne ici, ses cookies de "pas de session"
+  // peuvent écraser ceux posés par le callback dans la réponse finale.
+  if (pathname.startsWith('/callback')) {
+    return NextResponse.next()
+  }
+
+  const { supabaseResponse, user, supabase } = await updateSession(request)
 
   const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/signup')
   const isAppRoute =
