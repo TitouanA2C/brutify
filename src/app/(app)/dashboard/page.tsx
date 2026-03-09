@@ -46,9 +46,10 @@ import type {
 import { useUpsell } from "@/hooks/useUpsellTrigger";
 import { useUser } from "@/hooks/useUser";
 
-type BoardStatus = "idea" | "draft" | "in_progress" | "scheduled" | "published";
+type BoardStatus = "inspiration" | "idea" | "draft" | "in_progress" | "scheduled" | "published";
 
 const boardStatusConfig: Record<BoardStatus, { label: string; color: string }> = {
+  inspiration: { label: "Inspiration", color: "#A855F7" },
   idea: { label: "Idée", color: "rgba(255,255,255,0.3)" },
   draft: { label: "Brouillon", color: "#FFD700" },
   in_progress: { label: "En cours", color: "#FFAB00" },

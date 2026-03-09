@@ -338,7 +338,22 @@ export async function POST(
 
     // ── Credits & free analysis ─────────────────────────────────────────────
     if (totalCost > 0) {
-      await consumeCredits(user.id, totalCost, "creator_analysis", analysisRow.id)
+      const consumed = await consumeCredits(user.id, totalCost, "creator_analysis", analysisRow.id)
+      if (!consumed) {
+        log("credits consumption failed (insufficient?)", { totalCost })
+        await supabase
+          .from("creator_analyses")
+          .update({
+            status: "failed",
+            error_message: "Crédits insuffisants",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", analysisRow.id)
+        return NextResponse.json(
+          { error: "Crédits Brutpoints insuffisants pour cette analyse." },
+          { status: 402 }
+        )
+      }
       log("credits consumed", { totalCost })
     }
 

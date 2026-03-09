@@ -15,12 +15,13 @@ import {
   useBoard, useCreateBoardItem, useUpdateBoardItem, useDeleteBoardItem, type BoardItem,
 } from "@/hooks/useBoard";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/lib/toast-context";
 import { Loading } from "@/components/ui/Loading";
 import { DatePicker } from "@/components/ui/DatePicker";
 
 // ─── Types & Config ───────────────────────────────────────────────────────────
 
-type BrutBoardStatus = "idea" | "draft" | "in_progress" | "scheduled" | "published";
+type BrutBoardStatus = "inspiration" | "idea" | "draft" | "in_progress" | "scheduled" | "published";
 type Platform = "instagram" | "tiktok" | "youtube";
 type ViewMode = "list" | "calendar";
 
@@ -29,13 +30,14 @@ const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
 const statusConfig: Record<BrutBoardStatus, { label: string; color: string; dot: string; bg: string; border: string; order: number }> = {
+  inspiration: { label: "Inspiration", color: "#A855F7", dot: "bg-violet-400",    bg: "bg-violet-500/[0.06]",     border: "border-violet-500/[0.15]",     order: -1 },
   idea:        { label: "Idée",       color: "#6B7280", dot: "bg-white/30",      bg: "bg-white/[0.03]",          border: "border-white/[0.06]",         order: 0 },
   draft:       { label: "Brouillon",  color: "#FFAB00", dot: "bg-orange-400",    bg: "bg-orange-400/[0.04]",     border: "border-orange-400/[0.12]",    order: 1 },
   in_progress: { label: "En cours",   color: "#CC8800", dot: "bg-yellow-500",    bg: "bg-yellow-500/[0.04]",     border: "border-yellow-500/[0.12]",    order: 2 },
   scheduled:   { label: "Planifié",   color: "#8B5CF6", dot: "bg-brutify-gold",  bg: "bg-brutify-gold/[0.04]",   border: "border-brutify-gold/[0.12]",  order: 3 },
   published:   { label: "Publié",     color: "#00E5A0", dot: "bg-emerald-400",   bg: "bg-emerald-400/[0.04]",    border: "border-emerald-400/[0.12]",   order: 4 },
 };
-const statusOrder: BrutBoardStatus[] = ["idea","draft","in_progress","scheduled","published"];
+const statusOrder: BrutBoardStatus[] = ["inspiration","idea","draft","in_progress","scheduled","published"];
 
 const platformLabels: Record<Platform, string> = { instagram: "IG", tiktok: "TT", youtube: "YT" };
 const platformColors: Record<Platform, string> = { instagram: "#E1306C", tiktok: "#00F2EA", youtube: "#FF0000" };
@@ -61,6 +63,7 @@ const platformSvg: Record<Platform, (cls: string) => React.ReactNode> = {
 
 export default function BrutBoardPage() {
   const router = useRouter();
+  const toast = useToast();
   const { items, isLoading, mutate } = useBoard();
   const { create, isCreating } = useCreateBoardItem();
   const { update } = useUpdateBoardItem();
@@ -72,7 +75,6 @@ export default function BrutBoardPage() {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [prefillDate, setPrefillDate] = useState<string | undefined>();
   const [mounted, setMounted] = useState(false);
-
   useEffect(() => { setMounted(true); }, []);
 
   // Calendar state
@@ -84,7 +86,7 @@ export default function BrutBoardPage() {
   const month = currentDate.getMonth();
 
   const grouped = useMemo(() => {
-    const g: Record<BrutBoardStatus, BoardItem[]> = { idea: [], draft: [], in_progress: [], scheduled: [], published: [] };
+    const g: Record<BrutBoardStatus, BoardItem[]> = { inspiration: [], idea: [], draft: [], in_progress: [], scheduled: [], published: [] };
     items.forEach(i => { const s = i.status as BrutBoardStatus; if (g[s]) g[s].push(i); });
     return g;
   }, [items]);
@@ -168,6 +170,14 @@ export default function BrutBoardPage() {
     setMenuOpenId(null);
   }, [router]);
 
+  const openScripts = useCallback((item: BoardItem) => {
+    if (item.script_id) {
+      router.push(`/scripts?edit=${item.script_id}`);
+    } else {
+      router.push(`/scripts?board_item_id=${item.id}`);
+    }
+  }, [router]);
+
   const handleSave = useCallback(async (body: {
     title: string; status?: string; scheduled_date?: string; platform?: string; notes?: string;
   }) => {
@@ -176,10 +186,14 @@ export default function BrutBoardPage() {
       mutate(prev => ({ items: (prev?.items ?? []).map(i => i.id === editItem.id ? { ...i, ...body } : i) }), false);
       await update(editItem.id, body);
     } else {
-      await create(body);
+      const result = await create(body);
+      if (result?.bonusClaimable) {
+        toast.success(`Bonus débloqué ! Récupère tes ${result.bonusClaimable.reward} BP sur le dashboard.`);
+        setTimeout(() => router.push("/dashboard"), 1500);
+      }
     }
     setEditItem(null);
-  }, [editItem, create, update, mutate]);
+  }, [editItem, create, update, mutate, toast, router]);
 
   const handleDelete = useCallback(async (id: string) => {
     setShowModal(false);
@@ -206,9 +220,11 @@ export default function BrutBoardPage() {
   return (
     <motion.div initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.4, ease: EASE }} className="max-w-[1400px] mx-auto">
       <PageHeader title="BrutBoard" subtitle={`${items.length} contenus`}>
-        <Button variant="primary" size="md" onClick={() => openNew(view === "calendar" ? todayStr : undefined)}>
-          <Plus className="h-4 w-4" />Nouveau contenu
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="primary" size="md" onClick={() => openNew(view === "calendar" ? todayStr : undefined)}>
+            <Plus className="h-4 w-4" />Nouveau contenu
+          </Button>
+        </div>
       </PageHeader>
 
       {/* View toggle + filters */}
@@ -277,6 +293,7 @@ export default function BrutBoardPage() {
                               onToggleMenu={() => setMenuOpenId(menuOpenId===item.id?null:item.id)}
                               onCloseMenu={() => setMenuOpenId(null)}
                               onEdit={openEdit} onDelete={handleDelete} onChangeStatus={handleChangeStatus}
+                              onOpenScripts={openScripts}
                             />
                           </motion.div>
                         ))}
@@ -388,7 +405,7 @@ export default function BrutBoardPage() {
 
 // ─── Board item row ────────────────────────────────────────────────────────────
 
-function BoardItemRow({ item, menuOpen, onToggleMenu, onCloseMenu, onEdit, onDelete, onChangeStatus }: {
+function BoardItemRow({ item, menuOpen, onToggleMenu, onCloseMenu, onEdit, onDelete, onChangeStatus, onOpenScripts }: {
   item: BoardItem;
   menuOpen: boolean;
   onToggleMenu: () => void;
@@ -396,6 +413,7 @@ function BoardItemRow({ item, menuOpen, onToggleMenu, onCloseMenu, onEdit, onDel
   onEdit: (item: BoardItem) => void;
   onDelete: (id: string) => void;
   onChangeStatus: (id: string, status: BrutBoardStatus) => void;
+  onOpenScripts: (item: BoardItem) => void;
 }) {
   const cfg = statusConfig[item.status as BrutBoardStatus];
   const menuRef = useRef<HTMLDivElement>(null);
@@ -463,6 +481,9 @@ function BoardItemRow({ item, menuOpen, onToggleMenu, onCloseMenu, onEdit, onDel
               className="absolute right-0 top-full mt-1 z-30 w-48 rounded-2xl border border-white/[0.06] bg-[#111113] backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
               <button onClick={() => onEdit(item)} className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-body text-brutify-text-secondary hover:bg-white/[0.04] hover:text-brutify-text-primary transition-colors cursor-pointer">
                 <Pencil className="h-3.5 w-3.5" />Éditer
+              </button>
+              <button onClick={() => { onCloseMenu(); onOpenScripts(item); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-body text-brutify-text-secondary hover:bg-white/[0.04] hover:text-brutify-text-primary transition-colors cursor-pointer">
+                <Sparkles className="h-3.5 w-3.5" />{item.script_id ? "Éditer le script" : "Forger un script"}
               </button>
               <div className="border-t border-white/[0.06]">
                 <p className="px-3 pt-2 pb-1 text-[9px] font-body font-medium uppercase tracking-wider text-brutify-text-muted">Changer statut</p>

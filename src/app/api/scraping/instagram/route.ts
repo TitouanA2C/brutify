@@ -34,6 +34,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Handle requis" }, { status: 400 })
   }
 
+  const { data: userProfile } = await supabase
+    .from("profiles")
+    .select("niche")
+    .eq("id", user.id)
+    .single()
+  const userNiche = userProfile?.niche?.trim() || null
+
   // Check if creator already exists and is fresh (cache → pas de coût BP)
   const { data: existing } = await supabase
     .from("creators")
@@ -134,6 +141,7 @@ export async function POST(request: Request) {
     bio: profile.bio,
     followers: profile.followers,
     posts_count: profile.posts_count,
+    ...(userNiche && { niche: userNiche }),
     updated_at: new Date().toISOString(),
   }
 

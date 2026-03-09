@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import {
   parseScriptResponse,
   streamScript,
@@ -7,7 +7,7 @@ import {
 import { checkCredits, consumeCredits, COSTS } from "@/lib/credits"
 import { canUseFeature, getMinPlanForFeature } from "@/lib/plans"
 import { logApiUsage, estimateTokens } from "@/lib/api-usage"
-import { checkAndUnlockBonus } from "@/lib/activation-triggers"
+import { checkAndUnlockBonus, getClaimableBonusAfterAction } from "@/lib/activation-triggers"
 
 interface GenerateBody {
   subject: string
@@ -200,8 +200,9 @@ export async function POST(request: Request) {
           return
         }
 
-        // Vérifier et débloquer bonus d'activation (premier script)
         checkAndUnlockBonus(user.id, "generate_script").catch(() => {})
+        const serviceSupabase = createServiceClient()
+        const bonusClaimable = await getClaimableBonusAfterAction(serviceSupabase, user.id, "generate_script")
 
         const title = body.subject.slice(0, 100)
 
@@ -233,7 +234,13 @@ export async function POST(request: Request) {
         } else {
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "done", script, sections, credits_consumed: cost })}\n\n`
+              `data: ${JSON.stringify({
+                type: "done",
+                script,
+                sections,
+                credits_consumed: cost,
+                ...(bonusClaimable && { bonusClaimable }),
+              })}\n\n`
             )
           )
         }

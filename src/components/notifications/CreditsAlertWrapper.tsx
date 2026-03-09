@@ -2,13 +2,14 @@
 
 import { useCredits } from "@/lib/credits-context"
 import { useUser } from "@/hooks/useUser"
-import { CreditsAlert } from "./CreditsAlert"
+import { PLANS } from "@/lib/stripe/config"
 import { FREE_TRANSCRIPTS_LIMITS } from "@/lib/credits-rules"
+import { CreditsAlert } from "./CreditsAlert"
 
 const maxCreditsMap: Record<string, number> = {
-  creator: 500,
-  growth: 2000,
-  scale: 6000,
+  creator: PLANS.creator.credits,
+  growth: PLANS.growth.credits,
+  scale: PLANS.scale.credits,
 }
 
 export function CreditsAlertWrapper() {

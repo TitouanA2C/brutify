@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { PLANS } from "@/lib/stripe/config"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Loading } from "@/components/ui/Loading"
@@ -92,75 +93,22 @@ interface CreditPack {
   actualBp?: number
 }
 
-const PLANS_DISPLAY: PlanDisplay[] = [
-  {
-    key: "creator",
-    name: "Creator",
-    tagline: "Pour commencer à scaler",
-    monthlyPrice: 19,
-    yearlyPrice: 14,
-    yearlyTotalSavings: 60,
-    credits: 500,
-    highlight: "~250 scripts / mois",
-    bpDiscount: 15,
-    features: [
-      "500 Brutpoints / mois",
-      "Scripts IA illimités",
-      "Transcription vidéo",
-      "Analyse concurrentielle",
-      "BrutBoard & Banque d'idées",
-      "Dashboard créateurs complet",
-      "Radar jusqu'à 10 créateurs",
-      "-15% sur recharges BP",
-    ],
-  },
-  {
-    key: "growth",
-    name: "Growth",
-    tagline: "Pour les créateurs sérieux",
-    monthlyPrice: 39,
-    yearlyPrice: 28,
-    yearlyTotalSavings: 132,
-    credits: 2000,
-    highlight: "~1 000 scripts / mois",
-    popular: true,
-    bpDiscount: 25,
-    features: [
-      "2 000 Brutpoints / mois",
-      "Tout Creator inclus",
-      "5 transcriptions gratuites / mois",
-      "Auto-transcription ≤ 2 min",
-      "Transcription vidéo (3 BP)",
-      "Analyse IA deep (5 BP)",
-      "Analyse concurrentielle (30 BP)",
-      "Inspiration IA vault (4 BP)",
-      "Radar illimité",
-      "-25% sur recharges BP",
-    ],
-  },
-  {
-    key: "scale",
-    name: "Scale",
-    tagline: "Pour les équipes & agences",
-    monthlyPrice: 79,
-    yearlyPrice: 57,
-    yearlyTotalSavings: 264,
-    credits: 6000,
-    highlight: "~3 000 scripts / mois",
-    bpDiscount: 40,
-    features: [
-      "6 000 Brutpoints / mois",
-      "Tout Growth inclus",
-      "10 transcriptions gratuites / mois",
-      "Auto-transcription ≤ 10 min",
-      "1 analyse concurrentielle / mois offerte",
-      "Multi-utilisateurs (3 seats)",
-      "Export scripts & analyses",
-      "Support prioritaire",
-      "-40% sur recharges BP",
-    ],
-  },
-]
+const PLANS_DISPLAY: PlanDisplay[] = (["creator", "growth", "scale"] as const).map((key) => {
+  const p = PLANS[key]
+  return {
+    key,
+    name: p.name,
+    tagline: p.tagline,
+    monthlyPrice: p.monthlyPrice,
+    yearlyPrice: p.yearlyPrice,
+    yearlyTotalSavings: p.yearlyTotalSavings,
+    credits: p.credits,
+    highlight: p.highlight ?? "",
+    popular: p.popular,
+    bpDiscount: p.bpDiscount,
+    features: p.features,
+  }
+})
 
 const CREDIT_PACKS: CreditPack[] = [
   {

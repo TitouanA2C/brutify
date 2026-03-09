@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
+import { checkBonusCondition } from "@/lib/activation-triggers"
 import { ACTIVATION_BONUSES, EARLY_UPGRADE_BONUS, isBonusUnlocked, isInTrialPeriod } from "@/lib/credits-rules"
 
 export async function POST(request: Request) {
@@ -175,10 +176,21 @@ export async function GET(request: Request) {
       ? [...ACTIVATION_BONUSES, EARLY_UPGRADE_BONUS]
       : ACTIVATION_BONUSES
 
-    const bonusesWithStatus = allBonuses.map(bonus => ({
-      ...bonus,
-      unlocked: isBonusUnlocked(activationBonuses, bonus.id),
-    }))
+    const bonusesWithStatus = await Promise.all(
+      allBonuses.map(async (bonus) => {
+        const unlocked = isBonusUnlocked(activationBonuses, bonus.id)
+        const conditionMet =
+          bonus.id !== "early_upgrade"
+            ? await checkBonusCondition(serviceSupabase, user.id, bonus.id)
+            : false
+        const claimable = !unlocked && conditionMet
+        return {
+          ...bonus,
+          unlocked,
+          claimable,
+        }
+      })
+    )
 
     const totalEarned = bonusesWithStatus
       .filter(b => b.unlocked)

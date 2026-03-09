@@ -14,6 +14,7 @@ export type HookType =
   | "Question";
 
 export type BrutBoardStatus =
+  | "inspiration"
   | "idea"
   | "draft"
   | "in_progress"

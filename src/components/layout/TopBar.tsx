@@ -58,13 +58,21 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 export function TopBar({ onMenuClick }: TopBarProps) {
-  const { profile, signOut } = useUser();
+  const { user, profile } = useUser();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
 
-  const userName = profile?.full_name ?? "Utilisateur";
-  const userEmail = profile?.email ?? "";
+  const profileName = profile?.full_name?.trim();
+  const authName =
+    (user?.user_metadata?.full_name as string | undefined)?.trim() ||
+    (user?.user_metadata?.name as string | undefined)?.trim();
+  const userName =
+    (profileName && profileName.length > 2 ? profileName : null) ??
+    authName ??
+    (user?.email ? user.email.split("@")[0] : null) ??
+    "Utilisateur";
+  const userEmail = profile?.email ?? user?.email ?? "";
   const userPlan = profile?.plan ?? "creator";
   const initials = userName
     .split(" ")
@@ -293,13 +301,14 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                 <div className="h-px bg-white/[0.06] mx-3" />
 
                 <div className="py-1.5">
-                  <button
-                    onClick={() => { setUserOpen(false); signOut(); }}
+                  <Link
+                    href="/api/auth/logout"
+                    onClick={() => setUserOpen(false)}
                     className="flex items-center gap-3 w-full px-4 py-2 text-[13px] font-body font-medium text-brutify-danger/80 hover:text-brutify-danger hover:bg-brutify-danger/[0.04] transition-all duration-150 cursor-pointer"
                   >
                     <LogOut className="h-3.5 w-3.5" />
                     Se déconnecter
-                  </button>
+                  </Link>
                 </div>
               </motion.div>
             )}

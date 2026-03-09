@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useUser } from "@/hooks/useUser";
 import { createClient } from "@/lib/supabase/client";
+import { PLANS } from "@/lib/stripe/config";
 import { ACTION_LABELS } from "@/lib/credits-constants";
 import { FREE_TRANSCRIPTS_LIMITS } from "@/lib/credits-rules";
 
@@ -27,6 +28,8 @@ interface CreditsContextType {
   credits: number;
   maxCredits: number;
   plan: string;
+  /** true quand credits/max viennent du profil ou d’un fallback API — évite "Chargement…" infini */
+  creditsLoaded: boolean;
   borrowedCredits: number;
   rolloverCredits: number;
   freeTranscriptsUsed: number;
@@ -43,9 +46,9 @@ interface CreditsContextType {
 const CreditsContext = createContext<CreditsContextType | null>(null);
 
 const MAX_CREDITS_BY_PLAN: Record<string, number> = {
-  creator: 500,
-  growth: 2000,
-  scale: 6000,
+  creator: PLANS.creator.credits,
+  growth: PLANS.growth.credits,
+  scale: PLANS.scale.credits,
 };
 
 function formatDate(isoDate: string): string {
@@ -81,14 +84,17 @@ function dbRowToUsage(row: {
 }
 
 export function CreditsProvider({ children }: { children: ReactNode }) {
-  const { profile, refreshProfile } = useUser();
+  const { user, profile, refreshProfile } = useUser();
   const [localCredits, setLocalCredits] = useState<number | null>(null);
+  /** Fallback quand le profil UserProvider n’est pas encore chargé : on a les BP via l’API */
+  const [apiFallback, setApiFallback] = useState<{ credits: number; plan: string } | null>(null);
   const [history, setHistory] = useState<CreditUsage[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const credits = localCredits ?? profile?.credits ?? 0;
-  const plan = profile?.plan ?? "creator";
+  const credits = localCredits ?? profile?.credits ?? apiFallback?.credits ?? 0;
+  const plan = profile?.plan ?? apiFallback?.plan ?? "creator";
   const maxCredits = MAX_CREDITS_BY_PLAN[plan] ?? 500;
+  const creditsLoaded = !!profile?.id || !!apiFallback;
   const borrowedCredits = profile?.borrowed_credits ?? 0;
   const rolloverCredits = profile?.rollover_credits ?? 0;
   const freeTranscriptsUsed = profile?.free_transcripts_used ?? 0;
@@ -98,8 +104,29 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (profile) {
       setLocalCredits(profile.credits);
+      setApiFallback(null);
     }
   }, [profile]);
+
+  // Si on a une session mais pas de profil (chargement lent ou échec), récupérer au moins credits/plan via l’API
+  useEffect(() => {
+    if (profile?.id || !user?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/profile");
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const p = data.profile;
+        if (cancelled || !p) return;
+        setApiFallback({ credits: p.credits ?? 0, plan: p.plan ?? "creator" });
+        setLocalCredits(p.credits ?? 0);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, profile?.id]);
 
   // Rafraîchir le profil si les crédits sont à 0 alors que le profil vient de charger
   const didInitialRefresh = useRef(false);
@@ -113,23 +140,48 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
-  // Charger l'historique depuis credit_transactions au montage
+  const HISTORY_LOAD_TIMEOUT_MS = 12_000;
+
   const loadHistory = useCallback(async (userId: string) => {
     setHistoryLoading(true);
     try {
       const supabase = createClient();
-      const { data } = await supabase
+      const queryPromise = supabase
         .from("credit_transactions")
         .select("id, action, amount, created_at, reference_id")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(50);
 
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), HISTORY_LOAD_TIMEOUT_MS)
+      );
+
+      const { data } = await Promise.race([queryPromise, timeoutPromise]);
+
       if (data) {
         setHistory(data.map(dbRowToUsage));
+        setHistoryLoading(false);
+        return;
       }
     } catch {
-      /* silently fail — historique non critique */
+      /* client Supabase a échoué ou timeout — essayer l’API serveur */
+    }
+
+    try {
+      const res = await fetch("/api/credits/history");
+      if (res.ok) {
+        const { history: raw } = await res.json();
+        if (Array.isArray(raw)) {
+          setHistory(
+            raw.map((row: { id: string; action: string; amount: number; created_at: string; reference_id?: string | null }) =>
+              dbRowToUsage(row)
+            )
+          );
+        }
+      }
+    } catch {
+      setHistory([]);
     } finally {
       setHistoryLoading(false);
     }
@@ -168,7 +220,22 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
 
   const refreshCredits = useCallback(async () => {
     await refreshProfile();
-  }, [refreshProfile]);
+    if (!profile?.id && user?.id) {
+      try {
+        const res = await fetch("/api/profile");
+        if (res.ok) {
+          const data = await res.json();
+          const p = data.profile;
+          if (p) {
+            setApiFallback({ credits: p.credits ?? 0, plan: p.plan ?? "creator" });
+            setLocalCredits(p.credits ?? 0);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [refreshProfile, profile?.id, user?.id]);
 
   const refreshHistory = useCallback(async () => {
     if (profile?.id) {
@@ -182,6 +249,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         credits,
         maxCredits,
         plan,
+        creditsLoaded,
         borrowedCredits,
         rolloverCredits,
         freeTranscriptsUsed,

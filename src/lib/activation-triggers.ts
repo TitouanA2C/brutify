@@ -1,121 +1,87 @@
 /**
- * Triggers automatiques pour débloquer les bonus d'activation
+ * Triggers pour les bonus d'activation.
+ * On ne débloque plus automatiquement : la condition rend le bonus "réclamable"
+ * et l'utilisateur récupère les BP au clic sur le dashboard.
  */
 
-import { createServiceClient } from "@/lib/supabase/server"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { ACTIVATION_BONUSES, isBonusUnlocked } from "@/lib/credits-rules"
 
-/**
- * Vérifie et débloque automatiquement les bonus d'activation selon l'action
- */
-export async function checkAndUnlockBonus(
-  userId: string,
-  action: "follow_creator" | "scrape_videos" | "generate_script" | "add_to_board"
-) {
-  const supabase = createServiceClient()
+const BONUS_ACTION_MAP: Record<string, string> = {
+  follow_creator: "follow_creators",
+  scrape_videos: "scrape_videos",
+  generate_script: "generate_script",
+  add_to_board: "add_to_board",
+}
 
-  // Récupérer le profil
+export type ActivationAction = "follow_creator" | "scrape_videos" | "generate_script" | "add_to_board"
+
+/**
+ * Vérifie si une action vient de rendre un bonus réclamable (condition remplie, pas encore débloqué).
+ * Retourne le bonus à réclamer ou null. N'accorde pas les BP (c'est le POST /api/activation/bonus qui le fait).
+ */
+export async function getClaimableBonusAfterAction(
+  supabase: SupabaseClient,
+  userId: string,
+  action: ActivationAction
+): Promise<{ id: string; name: string; reward: number } | null> {
+  const bonusId = BONUS_ACTION_MAP[action]
+  if (!bonusId) return null
+
   const { data: profile } = await supabase
     .from("profiles")
-    .select("activation_bonuses, credits")
+    .select("activation_bonuses")
     .eq("id", userId)
     .single()
 
-  if (!profile) return
+  if (!profile || isBonusUnlocked(profile.activation_bonuses || {}, bonusId))
+    return null
 
-  const activationBonuses = profile.activation_bonuses || {}
-
-  // Mapping action → bonusId
-  const bonusMapping: Record<string, string> = {
-    follow_creator: "follow_creators",
-    scrape_videos: "scrape_videos",
-    generate_script: "generate_script",
-    add_to_board: "add_to_board",
-  }
-
-  const bonusId = bonusMapping[action]
-  if (!bonusId) return
-
-  // Vérifier si déjà débloqué
-  if (isBonusUnlocked(activationBonuses, bonusId)) return
-
-  // Vérifier la condition
   const conditionMet = await checkBonusCondition(supabase, userId, bonusId)
-  if (!conditionMet) return
+  if (!conditionMet) return null
 
-  // Débloquer le bonus
   const bonus = ACTIVATION_BONUSES.find(b => b.id === bonusId)
-  if (!bonus) return
+  if (!bonus) return null
 
-  const newActivationBonuses = {
-    ...activationBonuses,
-    [bonusId]: true,
-  }
-
-  const newCredits = profile.credits + bonus.reward
-
-  await supabase
-    .from("profiles")
-    .update({
-      credits: newCredits,
-      activation_bonuses: newActivationBonuses,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId)
-
-  // Logger
-  await supabase.from("credit_transactions").insert({
-    user_id: userId,
-    amount: bonus.reward,
-    action: `activation_bonus_${bonusId}`,
-    reference_id: bonusId,
-  })
-
-  console.log(
-    `[Activation] User ${userId} unlocked "${bonus.name}" (+${bonus.reward} BP)`
-  )
+  return { id: bonus.id, name: bonus.name, reward: bonus.reward }
 }
 
 /**
- * Vérifie si la condition d'un bonus est remplie
+ * Vérifie la condition d'un bonus (sans accorder les BP).
+ * Exporté pour que GET /api/activation/bonus puisse calculer claimable.
  */
-async function checkBonusCondition(
-  supabase: ReturnType<typeof createServiceClient>,
+export async function checkBonusCondition(
+  supabase: SupabaseClient,
   userId: string,
   bonusId: string
 ): Promise<boolean> {
   switch (bonusId) {
     case "follow_creators": {
       const { count } = await supabase
-        .from("watchlist")
-        .select("*", { count: "exact", head: true })
+        .from("watchlists")
+        .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
       return (count ?? 0) >= 3
     }
 
     case "scrape_videos": {
-      // Compter les vidéos scrapées par l'utilisateur (via watchlist)
-      const { data: watchlist } = await supabase
-        .from("watchlist")
+      const { data: wl } = await supabase
+        .from("watchlists")
         .select("creator_id")
         .eq("user_id", userId)
-
-      if (!watchlist || watchlist.length === 0) return false
-
-      const creatorIds = watchlist.map(w => w.creator_id)
+      if (!wl?.length) return false
+      const creatorIds = wl.map(w => w.creator_id)
       const { count } = await supabase
         .from("videos")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .in("creator_id", creatorIds)
-
       return (count ?? 0) >= 5
     }
 
     case "generate_script": {
-      // Vérifier via les transactions de crédits
       const { count } = await supabase
         .from("credit_transactions")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
         .eq("action", "script_generation")
       return (count ?? 0) >= 1
@@ -123,8 +89,8 @@ async function checkBonusCondition(
 
     case "add_to_board": {
       const { count } = await supabase
-        .from("board")
-        .select("*", { count: "exact", head: true })
+        .from("board_items")
+        .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
       return (count ?? 0) >= 1
     }
@@ -132,4 +98,15 @@ async function checkBonusCondition(
     default:
       return false
   }
+}
+
+/**
+ * @deprecated Ne plus accorder les BP ici : l'utilisateur réclame au clic sur le dashboard.
+ * Conservé pour compatibilité des appels ; les APIs doivent utiliser getClaimableBonusAfterAction et retourner bonusClaimable.
+ */
+export async function checkAndUnlockBonus(
+  _userId: string,
+  _action: ActivationAction
+) {
+  // No-op : le bonus est désormais réclamable sur le dashboard au clic
 }

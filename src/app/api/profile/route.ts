@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 
-const PROFILE_FIELDS = "id, email, full_name, avatar_url, plan, credits, niche, tone_of_voice, writing_style, instagram_handle, tiktok_handle, youtube_handle, created_at"
+const PROFILE_FIELDS = "id, email, full_name, avatar_url, plan, credits, borrowed_credits, rollover_credits, free_transcripts_used, niche, tone_of_voice, writing_style, instagram_handle, tiktok_handle, youtube_handle, created_at"
 
 export async function GET() {
   const supabase = createClient()

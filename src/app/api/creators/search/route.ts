@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { toCreatorDTO } from "@/lib/api/helpers"
+import { sanitizeSearchQuery } from "@/lib/security"
+
+const Q_MAX_LENGTH = 100
 
 export async function GET(request: NextRequest) {
   const supabase = createClient()
@@ -13,7 +16,8 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = request.nextUrl
-  const q = searchParams.get("q")?.trim() ?? ""
+  const qRaw = searchParams.get("q")?.trim() ?? ""
+  const q = sanitizeSearchQuery(qRaw, Q_MAX_LENGTH)
   const platform = searchParams.get("platform")
   const niche = searchParams.get("niche")
 
@@ -30,7 +34,7 @@ export async function GET(request: NextRequest) {
     query = query.eq("platform", platform)
   }
   if (niche) {
-    query = query.ilike("niche", niche)
+    query = query.ilike("niche", niche.slice(0, 80))
   }
 
   const { data: creators, error } = await query
@@ -42,17 +46,17 @@ export async function GET(request: NextRequest) {
   }
 
   if (!creators || creators.length === 0) {
-    // Un handle = commence par @ OU est purement alphanum/underscore/point (sans espace)
+    const qDisplay = qRaw.slice(0, Q_MAX_LENGTH)
     const looksLikeHandle =
-      q.startsWith("@") || /^[a-zA-Z0-9._]+$/.test(q)
+      qDisplay.startsWith("@") || /^[a-zA-Z0-9._]+$/.test(qDisplay)
     // Recherche par mot-clé = contient un espace (ex: "Gael create", "Alex Hormozi")
-    const canSearch = q.includes(" ") && q.length >= 2
+    const canSearch = qDisplay.includes(" ") && qDisplay.length >= 2
 
     return NextResponse.json({
       creators: [],
-      canScrape: looksLikeHandle && !q.includes(" ") && q.length > 2,
+      canScrape: looksLikeHandle && !qDisplay.includes(" ") && qDisplay.length > 2,
       canSearch,
-      query: q,
+      query: qDisplay,
     })
   }
 
@@ -93,6 +97,6 @@ export async function GET(request: NextRequest) {
     creators: creatorsWithOutliers,
     canScrape: false,
     canSearch: false,
-    query: q,
+    query: qRaw.slice(0, Q_MAX_LENGTH),
   })
 }

@@ -54,7 +54,10 @@ export function useCreateBoardItem() {
         const json = await res.json()
         if (!res.ok) throw new Error(json.error ?? "Erreur")
         globalMutate((key: string) => key.startsWith(BOARD_KEY))
-        return json.item as BoardItem
+        return {
+          item: json.item as BoardItem,
+          bonusClaimable: json.bonusClaimable as { id: string; name: string; reward: number } | undefined,
+        }
       } finally {
         setIsCreating(false)
       }

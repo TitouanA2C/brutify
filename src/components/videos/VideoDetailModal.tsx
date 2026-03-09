@@ -14,7 +14,6 @@ import {
   Flame,
   Zap,
   ScrollText,
-  Bookmark,
   LayoutDashboard,
   Brain,
   CreditCard,
@@ -32,8 +31,8 @@ import type { Video } from "@/lib/types";
 import { parseStoredAnalysis, type FullVideoAnalysis } from "@/lib/ai/claude";
 import { useCredits } from "@/lib/credits-context";
 import { CreditConfirmModal } from "@/components/ui/CreditConfirmModal";
-import { useCreateVaultItem } from "@/hooks/useVault";
 import { useCreateBoardItem } from "@/hooks/useBoard";
+import { useToast } from "@/lib/toast-context";
 import { UpgradeModal } from "@/components/ui/UpgradeModal";
 import { CreditToast } from "@/components/ui/CreditToast";
 import { Loading } from "@/components/ui/Loading";
@@ -45,6 +44,12 @@ function proxyImg(url: string | null | undefined): string | null {
   if (!url) return null;
   if (url.startsWith("/")) return url;
   return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+}
+
+function proxyVideo(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("/")) return url;
+  return `/api/proxy-video?url=${encodeURIComponent(url)}`;
 }
 
 interface TranscriptionData {
@@ -97,9 +102,8 @@ export function VideoDetailModal({ video, creator: creatorProp, onClose }: Video
   const [lastErrorAction, setLastErrorAction] = useState<"transcript" | "analysis" | null>(null);
   const [pendingAction, setPendingAction] = useState<"analysis" | null>(null);
   const { credits, addUsage } = useCredits();
-  const { create: createVaultItem, isCreating: savingVault } = useCreateVaultItem();
   const { create: createBoardItem, isCreating: savingBoard } = useCreateBoardItem();
-  const [savedVault, setSavedVault] = useState(false);
+  const [savedInspiration, setSavedInspiration] = useState(false);
   const [savedBoard, setSavedBoard] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState<{ feature: string; requiredPlan: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; cost: number; remaining: number } | null>(null);
@@ -116,6 +120,7 @@ export function VideoDetailModal({ video, creator: creatorProp, onClose }: Video
     setPendingAction(null);
     setSavedVault(false);
     setSavedBoard(false);
+    setSavedInspiration(false);
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -162,23 +167,32 @@ export function VideoDetailModal({ video, creator: creatorProp, onClose }: Video
     setAnalyzing(false);
   }, [video, addUsage, credits]);
 
-  const handleSaveToVault = useCallback(async () => {
-    if (!video || savingVault || savedVault) return;
+  const router = useRouter();
+  const toastCtx = useToast();
+
+  const handleAddToInspiration = useCallback(async () => {
+    if (!video || savingBoard || savedInspiration) return;
     try {
-      await createVaultItem({ type: "video", content: video.title || "Vidéo sauvegardée", source_handle: creator?.handle ?? undefined, source_video_id: video.id });
-      setSavedVault(true);
+      const result = await createBoardItem({ title: video.title || "Vidéo inspiration", status: "inspiration", source_video_id: video.id });
+      setSavedInspiration(true);
+      if (result?.bonusClaimable) {
+        toastCtx.success(`Bonus débloqué ! Récupère tes ${result.bonusClaimable.reward} BP sur le dashboard.`);
+        setTimeout(() => router.push("/dashboard"), 1500);
+      }
     } catch { /* silent */ }
-  }, [video, creator, savingVault, savedVault, createVaultItem]);
+  }, [video, savingBoard, savedInspiration, createBoardItem, toastCtx, router]);
 
   const handleAddToBoard = useCallback(async () => {
     if (!video || savingBoard || savedBoard) return;
     try {
-      await createBoardItem({ title: video.title || "Contenu depuis vidéo", status: "idea", source_video_id: video.id });
+      const result = await createBoardItem({ title: video.title || "Contenu depuis vidéo", status: "idea", source_video_id: video.id });
       setSavedBoard(true);
+      if (result?.bonusClaimable) {
+        toastCtx.success(`Bonus débloqué ! Récupère tes ${result.bonusClaimable.reward} BP sur le dashboard.`);
+        setTimeout(() => router.push("/dashboard"), 1500);
+      }
     } catch { /* silent */ }
-  }, [video, savingBoard, savedBoard, createBoardItem]);
-
-  const router = useRouter();
+  }, [video, savingBoard, savedBoard, createBoardItem, toastCtx, router]);
   const [forgingScript, setForgingScript] = useState(false);
 
   const handleForgeScript = useCallback(async () => {
@@ -420,9 +434,9 @@ export function VideoDetailModal({ video, creator: creatorProp, onClose }: Video
                     </>
                   )}
                 </Button>
-                <Button variant="secondary" size="md" className="h-10" onClick={handleSaveToVault} disabled={savingVault || savedVault}>
-                  {savedVault ? <Sparkles className="h-4 w-4 text-brutify-gold" /> : savingVault ? <Loading variant="icon" size="sm" className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-                  {savedVault ? "Sauvé" : "Vault"}
+                <Button variant="secondary" size="md" className="h-10" onClick={handleAddToInspiration} disabled={savingBoard || savedInspiration}>
+                  {savedInspiration ? <Sparkles className="h-4 w-4 text-brutify-gold" /> : savingBoard ? <Loading variant="icon" size="sm" className="h-4 w-4" /> : <Lightbulb className="h-4 w-4" />}
+                  {savedInspiration ? "Ajouté" : "Inspiration"}
                 </Button>
                 <Button variant="ghost" size="md" className="h-10" onClick={handleAddToBoard} disabled={savingBoard || savedBoard}>
                   {savedBoard ? <Sparkles className="h-4 w-4 text-brutify-gold" /> : savingBoard ? <Loading variant="icon" size="sm" className="h-4 w-4" /> : <LayoutDashboard className="h-4 w-4" />}
@@ -467,7 +481,8 @@ function VideoPreview({ video }: { video: Video }) {
   const proxied = proxyImg(video.thumbnailUrl);
   const showThumb = !!proxied && !imgError;
 
-  const canPlay = !!video.mediaUrl && !playError;
+  const videoSrc = proxyVideo(video.mediaUrl);
+  const canPlay = !!videoSrc && !playError;
 
   const handlePlay = useCallback(() => {
     if (canPlay && videoRef.current) {
@@ -489,7 +504,7 @@ function VideoPreview({ video }: { video: Video }) {
       {canPlay && (
         <video
           ref={videoRef}
-          src={video.mediaUrl!}
+          src={videoSrc!}
           poster={proxied ?? undefined}
           className={cn(
             "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",

@@ -12,6 +12,7 @@ interface Bonus {
   description: string
   reward: number
   unlocked: boolean
+  claimable?: boolean
 }
 
 interface BonusState {
@@ -30,11 +31,12 @@ const BONUS_ICONS: Record<string, any> = {
 }
 
 export function ActivationBonusTracker() {
-  const { profile } = useUser()
+  const { profile, refreshProfile } = useUser()
   const [bonusState, setBonusState] = useState<BonusState | null>(null)
   const [loading, setLoading] = useState(true)
   const [showCelebration, setShowCelebration] = useState(false)
   const [lastUnlocked, setLastUnlocked] = useState<Bonus | null>(null)
+  const [claimingBonusId, setClaimingBonusId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchBonusState()
@@ -55,6 +57,8 @@ export function ActivationBonusTracker() {
   }
 
   async function unlockBonus(bonusId: string) {
+    if (claimingBonusId) return
+    setClaimingBonusId(bonusId)
     try {
       const res = await fetch("/api/activation/bonus", {
         method: "POST",
@@ -66,14 +70,18 @@ export function ActivationBonusTracker() {
         const data = await res.json()
         setLastUnlocked(data.bonus)
         setShowCelebration(true)
-        
+        refreshProfile()
         setTimeout(() => {
           setShowCelebration(false)
-          window.location.reload()
-        }, 3000)
+          setClaimingBonusId(null)
+          fetchBonusState()
+        }, 2200)
+      } else {
+        setClaimingBonusId(null)
       }
     } catch (err) {
       console.error("Failed to unlock bonus:", err)
+      setClaimingBonusId(null)
     }
   }
 
@@ -122,12 +130,17 @@ export function ActivationBonusTracker() {
                 {lastUnlocked.name}
               </p>
               
-              <div className="inline-flex items-center gap-2 rounded-xl bg-brutify-gold/20 border border-brutify-gold/40 px-6 py-3">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", damping: 12, stiffness: 200 }}
+                className="inline-flex items-center gap-2 rounded-xl bg-brutify-gold/20 border border-brutify-gold/40 px-6 py-3"
+              >
                 <Sparkles className="h-5 w-5 text-brutify-gold" />
                 <span className="font-display text-2xl text-brutify-gold">
                   +{lastUnlocked.reward} BP
                 </span>
-              </div>
+              </motion.div>
             </motion.div>
           </motion.div>
         )}
@@ -161,6 +174,47 @@ export function ActivationBonusTracker() {
         <div className="space-y-2">
           {bonusState.bonuses.map((bonus) => {
             const Icon = BONUS_ICONS[bonus.id] || Gift
+            const isClaimable = bonus.claimable && !bonus.unlocked
+            const isClaiming = claimingBonusId === bonus.id
+
+            if (isClaimable) {
+              return (
+                <motion.button
+                  key={bonus.id}
+                  type="button"
+                  onClick={() => unlockBonus(bonus.id)}
+                  disabled={!!claimingBonusId}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg p-2 transition-all text-left",
+                    "bg-brutify-gold/15 border-2 border-brutify-gold/40 hover:bg-brutify-gold/25 hover:border-brutify-gold/60",
+                    "focus:outline-none focus:ring-2 focus:ring-brutify-gold/50"
+                  )}
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brutify-gold/20 text-brutify-gold">
+                    {isClaiming ? (
+                      <motion.span
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                        className="h-4 w-4 rounded-full border-2 border-brutify-gold border-t-transparent"
+                      />
+                    ) : (
+                      <Gift className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-body font-semibold text-white">
+                      {bonus.description}
+                    </p>
+                  </div>
+                  <span className="rounded-lg bg-brutify-gold px-2.5 py-1 text-xs font-display font-bold text-black">
+                    Récupérer +{bonus.reward} BP
+                  </span>
+                </motion.button>
+              )
+            }
+
             return (
               <div
                 key={bonus.id}
@@ -185,7 +239,6 @@ export function ActivationBonusTracker() {
                     <Icon className="h-4 w-4" />
                   )}
                 </div>
-                
                 <div className="flex-1 min-w-0">
                   <p className={cn(
                     "text-xs font-body font-semibold",
@@ -194,7 +247,6 @@ export function ActivationBonusTracker() {
                     {bonus.description}
                   </p>
                 </div>
-                
                 <span className={cn(
                   "text-xs font-display font-bold",
                   bonus.unlocked ? "text-brutify-gold" : "text-white/40"

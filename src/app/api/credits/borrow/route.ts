@@ -102,12 +102,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Logger la transaction
+    // Logger la transaction (reference_id = UUID en base, null pour emprunt)
     await supabase.from("credit_transactions").insert({
       user_id: user.id,
       amount,
       action: "borrow",
-      reference_id: `borrow_${Date.now()}`,
+      reference_id: null,
     })
 
     return NextResponse.json({

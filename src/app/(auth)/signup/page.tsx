@@ -54,10 +54,13 @@ export default function SignupPage() {
     setError(null)
     setGoogleLoading(true)
 
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (typeof window !== "undefined" ? window.location.origin : "")
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/callback`,
+        redirectTo: `${baseUrl}/callback`,
       },
     })
 

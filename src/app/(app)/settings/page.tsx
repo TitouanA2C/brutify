@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CreditCard,
@@ -17,6 +18,7 @@ import {
   Bell,
   Shield,
   Trash2,
+  LogOut,
   Globe,
   User,
   Mail,
@@ -40,6 +42,8 @@ import { Button } from "@/components/ui/Button";
 import { GoldText } from "@/components/ui/GoldText";
 import { useUser } from "@/hooks/useUser";
 import { useCredits } from "@/lib/credits-context";
+import { useToast } from "@/lib/toast-context";
+import { PLANS } from "@/lib/stripe/config";
 import { cn } from "@/lib/utils";
 import { SocialAvatar, proxyImg } from "@/components/settings/SocialAvatar";
 import { ScrapeStatusBlock } from "@/components/settings/ScrapeStatusBlock";
@@ -82,7 +86,7 @@ const PLANS_DISPLAY: PlanDisplay[] = [
     features: [
       "500 Brutpoints / mois",
       "Scripts IA (2 BP / script)",
-      "BrutBoard & Banque d'idées",
+      "BrutBoard",
       "Dashboard créateurs",
       "Radar jusqu'à 10 créateurs",
       "-15% sur recharges BP",
@@ -104,7 +108,7 @@ const PLANS_DISPLAY: PlanDisplay[] = [
       "Tout Creator inclus",
       "Transcription vidéo (3 BP)",
       "Analyse IA deep (5 BP)",
-      "Inspiration IA vault (4 BP)",
+      "Inspiration IA (4 BP)",
       "Radar illimité",
       "-25% sur recharges BP",
     ],
@@ -131,9 +135,9 @@ const PLANS_DISPLAY: PlanDisplay[] = [
 ];
 
 const maxCreditsMap: Record<PlanKey, number> = {
-  creator: 500,
-  growth: 2000,
-  scale: 6000,
+  creator: PLANS.creator.credits,
+  growth: PLANS.growth.credits,
+  scale: PLANS.scale.credits,
 };
 
 const actionIcons: Record<string, typeof ScrollText> = {
@@ -153,6 +157,8 @@ type Tab = "profil" | "abonnement" | "parametres";
 
 function SettingsPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("abonnement");
   const { profile, refreshProfile } = useUser();
 
@@ -913,6 +919,28 @@ function SettingsPageContent() {
           </div>
         </div>
 
+        {/* Déconnexion */}
+        <div className="rounded-2xl border border-white/[0.06] bg-[#111113] overflow-hidden">
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-white/[0.05]">
+            <LogOut className="h-4 w-4 text-brutify-text-muted" />
+            <h3 className="font-display text-sm uppercase tracking-widest text-brutify-text-primary">Déconnexion</h3>
+          </div>
+          <div className="px-6 py-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-body font-medium text-brutify-text-primary">Se déconnecter de son compte</p>
+                <p className="text-[11px] font-body text-brutify-text-muted mt-0.5">Tu pourras te reconnecter à tout moment avec le même compte</p>
+              </div>
+              <Link
+                href="/api/auth/logout"
+                className="rounded-xl border border-white/[0.1] bg-white/[0.03] px-4 py-2 text-sm font-body font-semibold text-brutify-text-secondary hover:text-brutify-danger hover:bg-brutify-danger/[0.06] hover:border-brutify-danger/20 transition-all cursor-pointer inline-block"
+              >
+                Se déconnecter
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {/* Zone danger */}
         <div className="rounded-2xl border-2 border-red-500/30 bg-red-500/[0.06] overflow-hidden shadow-[0_0_40px_rgba(239,68,68,0.25)]">
           <div className="flex items-center gap-3 px-6 py-4 border-b border-red-500/[0.15]">
@@ -1012,6 +1040,8 @@ function InlineField({
 
 
 function ProfileTab() {
+  const router = useRouter();
+  const toast = useToast();
   const { profile: ctxProfile, refreshProfile } = useUser();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [stats, setStats] = useState<ProfileStats>({ creators: 0, videos: 0, scripts: 0 });
@@ -1069,11 +1099,16 @@ function ProfileTab() {
       }
 
       setScrape(platform, { status: "step3" });
-      await fetch("/api/watchlist", {
+      const watchRes = await fetch("/api/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ creator_id: scrapeData.creator.id }),
       });
+      const watchData = await watchRes.json().catch(() => ({}));
+      if (watchData.bonusClaimable) {
+        toast.success(`Bonus débloqué ! Récupère tes ${watchData.bonusClaimable.reward} BP sur le dashboard.`);
+        setTimeout(() => router.push("/dashboard"), 1500);
+      }
 
       // Background video scrape (Instagram only — TikTok/YouTube videos to come)
       if (platform === "instagram") {
@@ -1093,7 +1128,7 @@ function ProfileTab() {
     } catch {
       setScrape(platform, { status: "error", error: "Erreur réseau, réessaie." });
     }
-  }, [setScrape, reloadProfile]);
+  }, [setScrape, reloadProfile, toast, router]);
 
   const plan = profileData?.plan ?? ctxProfile?.plan ?? "creator";
   const planLabel = { creator: "Creator", growth: "Growth", scale: "Scale" }[plan] ?? plan;

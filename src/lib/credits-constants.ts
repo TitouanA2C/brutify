@@ -25,6 +25,7 @@ export type CreditAction = keyof typeof COSTS
 export const ACTION_LABELS: Record<string, string> = {
   script_generation:  "Script forgé",
   transcription:      "Transcription vidéo",
+  free_transcription: "Transcription gratuite",
   video_analysis:     "Analyse IA",
   inspire_vault:      "Inspiration IA",
   scraping:           "Scraping créateur",
@@ -32,4 +33,5 @@ export const ACTION_LABELS: Record<string, string> = {
   credit_purchase:    "Achat de crédits",
   monthly_reset:      "Recharge mensuelle",
   plan_upgrade:       "Upgrade plan",
+  trial_start:        "Essai gratuit (BP d'essai)",
 }

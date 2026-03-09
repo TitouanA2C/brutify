@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { generateIdeas, type IdeaVideoContext } from "@/lib/ai/claude"
 import { checkCredits, consumeCredits, COSTS } from "@/lib/credits"
 import { logApiUsage } from "@/lib/api-usage"
+import { checkAndUnlockBonus, getClaimableBonusAfterAction } from "@/lib/activation-triggers"
 
 const DEFAULT_COUNT = 6
 
@@ -124,33 +125,44 @@ export async function POST(req: NextRequest) {
     units: count,
   }).catch(() => {})
 
-  // 8. Sauvegarder les idées dans le Vault
-  const rows = ideas.map((idea) => ({
-    user_id: user.id,
-    type: "ai",
-    content: `${idea.title}\n\n${idea.why}`,
-    tags: [idea.hook_type, idea.structure, ...idea.tags].filter(Boolean),
-    source_handle: null,
-    source_video_id: null,
-  }))
+  // 8. Sauvegarder les idées dans le BrutBoard (status: idea) — plus de vault
+  const rows = ideas.map((idea) => {
+    const noteParts = [idea.why]
+    if (idea.hook_type) noteParts.push(`Hook: ${idea.hook_type}`)
+    if (idea.structure) noteParts.push(`Structure: ${idea.structure}`)
+    if (idea.tags?.length) noteParts.push(`Tags: ${idea.tags.join(", ")}`)
+    return {
+      user_id: user.id,
+      title: idea.title.trim(),
+      status: "idea" as const,
+      notes: noteParts.filter(Boolean).join("\n\n") || null,
+      scheduled_date: null,
+      platform: null,
+      script_id: null,
+      source_video_id: null,
+    }
+  })
 
   const { data: created, error: insertError } = await supabase
-    .from("vault_items")
+    .from("board_items")
     .insert(rows)
     .select()
 
   if (insertError) {
-    const hint = insertError.message?.includes("check")
-      ? " — Assure-toi d'avoir exécuté supabase/vault_ai_type.sql dans Supabase."
-      : ""
     return NextResponse.json(
-      { error: `Erreur lors de la sauvegarde${hint}` },
+      { error: `Erreur lors de l'ajout au BrutBoard: ${insertError.message}` },
       { status: 500 }
     )
   }
 
+  checkAndUnlockBonus(user.id, "add_to_board").catch(() => {})
+  const serviceSupabase = createServiceClient()
+  const bonusClaimable = await getClaimableBonusAfterAction(serviceSupabase, user.id, "add_to_board")
+
   return NextResponse.json(
-    { items: created, count: created?.length ?? 0, credits_consumed: cost },
+    bonusClaimable
+      ? { items: created, count: created?.length ?? 0, credits_consumed: cost, bonusClaimable }
+      : { items: created, count: created?.length ?? 0, credits_consumed: cost },
     { status: 201 }
   )
 }

@@ -1,4 +1,17 @@
 import { NextResponse } from "next/server"
+import { isAllowedProxyHostname } from "@/lib/security"
+
+const ALLOWED_DOMAINS = [
+  "instagram.com",
+  "cdninstagram.com",
+  "fbcdn.net",
+  "tiktokcdn.com",
+  "tiktok.com",
+  "ytimg.com",
+  "youtube.com",
+  "ggpht.com",
+  "pravatar.cc",
+]
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -6,25 +19,10 @@ export async function GET(request: Request) {
 
   if (!url) return new NextResponse("Missing url", { status: 400 })
 
-  // Validation SSRF : autoriser uniquement les domaines de confiance
-  const allowedDomains = [
-    "instagram.com",
-    "cdninstagram.com",
-    "fbcdn.net",
-    "tiktokcdn.com",
-    "tiktok.com",
-    "ytimg.com",
-    "youtube.com",
-    "ggpht.com",
-    "pravatar.cc",
-  ];
-
   try {
     const decoded = decodeURIComponent(url)
-    const urlObj = new URL(decoded)
-    const isAllowed = allowedDomains.some(domain => urlObj.hostname.includes(domain))
-    
-    if (!isAllowed) {
+    const requireHttps = process.env.NODE_ENV === "production"
+    if (!isAllowedProxyHostname(decoded, ALLOWED_DOMAINS, requireHttps)) {
       return new NextResponse("Domaine non autorisé", { status: 403 })
     }
 

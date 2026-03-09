@@ -98,12 +98,17 @@ export async function POST(request: Request) {
     }
   }
 
+  // Carte avant le trial (défaut) = Stripe demande la CB à l'inscription, puis charge à la fin du trial.
+  // Carte après le trial = mettre "if_required" : pas de CB à l'inscription ; prévoir trial_settings.end_behavior (pause ou cancel) si pas de CB avant fin du trial.
+  const collectCardBeforeTrial = true // false = trial sans CB (carte demandée plus tard)
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     customer: customerId,
     mode: "subscription",
+    payment_method_collection: collectCardBeforeTrial ? "always" : "if_required",
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: fromOnboarding
-      ? `${request.headers.get("origin")}/dashboard?welcome=true`
+      ? `${request.headers.get("origin")}/onboarding?success=1`
       : `${request.headers.get("origin")}/settings?session_id={CHECKOUT_SESSION_ID}&success=true`,
     cancel_url: fromOnboarding
       ? `${request.headers.get("origin")}/onboarding`
@@ -139,6 +144,15 @@ export async function POST(request: Request) {
   // 3. L'utilisateur n'a PAS déjà un abonnement actif (nouveau client uniquement)
   if (body.plan === "creator" && planConfig.trialDays && !hasActiveSubscription) {
     sessionParams.subscription_data!.trial_period_days = planConfig.trialDays
+    // Si on ne demande pas la CB à l'inscription (collectCardBeforeTrial = false),
+    // Stripe exige de définir le comportement si pas de CB avant la fin du trial.
+    if (!collectCardBeforeTrial) {
+      sessionParams.subscription_data!.trial_settings = {
+        end_behavior: {
+          missing_payment_method: "cancel", // "cancel" = annuler l'abonnement | "pause" = mettre en pause
+        },
+      }
+    }
   }
 
   // Appliquer le code promo si fourni
@@ -175,7 +189,12 @@ export async function POST(request: Request) {
     }
   }
 
-  const session = await stripe.checkout.sessions.create(sessionParams)
-
-  return NextResponse.json({ url: session.url })
+  try {
+    const session = await stripe.checkout.sessions.create(sessionParams)
+    return NextResponse.json({ url: session.url })
+  } catch (err) {
+    console.error("[Stripe Checkout] session creation error:", err)
+    const message = err instanceof Error ? err.message : "Stripe session creation failed"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

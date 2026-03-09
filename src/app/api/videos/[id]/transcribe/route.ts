@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
+import { isValidUuid } from "@/lib/security"
 import { transcribeVideo } from "@/lib/ai/whisper"
 import { checkCredits, consumeCredits, COSTS } from "@/lib/credits"
 import { canUseFeature, getMinPlanForFeature } from "@/lib/plans"
@@ -11,6 +12,9 @@ export async function POST(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
+  if (!isValidUuid(params.id)) {
+    return NextResponse.json({ error: "ID invalide" }, { status: 400 })
+  }
   const supabase = createClient()
 
   const {

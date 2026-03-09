@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { checkAndUnlockBonus } from "@/lib/activation-triggers"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
+import { checkAndUnlockBonus, getClaimableBonusAfterAction } from "@/lib/activation-triggers"
 
 export async function GET(request: NextRequest) {
   const supabase = createClient()
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     .insert({
       user_id: user.id,
       title: body.title.trim(),
-      status: (body.status as "idea" | "draft" | "in_progress" | "scheduled" | "published") ?? "idea",
+      status: (body.status as "inspiration" | "idea" | "draft" | "in_progress" | "scheduled" | "published") ?? "idea",
       scheduled_date: body.scheduled_date || null,
       platform: (body.platform as "instagram" | "tiktok" | "youtube" | "multi") || null,
       script_id: body.script_id || null,
@@ -84,8 +84,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Vérifier et débloquer bonus d'activation
   checkAndUnlockBonus(user.id, "add_to_board").catch(() => {})
+  const serviceSupabase = createServiceClient()
+  const bonusClaimable = await getClaimableBonusAfterAction(serviceSupabase, user.id, "add_to_board")
 
-  return NextResponse.json({ item }, { status: 201 })
+  return NextResponse.json(
+    bonusClaimable ? { item, bonusClaimable } : { item },
+    { status: 201 }
+  )
 }

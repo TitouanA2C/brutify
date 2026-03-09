@@ -14,8 +14,10 @@ const CreatorDetailModal = dynamic(
   () => import("@/components/creators/CreatorDetailModal").then(m => ({ default: m.CreatorDetailModal })),
   { ssr: false }
 );
+import { useRouter } from "next/navigation";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import type { InstagramSearchProfile } from "@/hooks/useCreators";
+import { useToast } from "@/lib/toast-context";
 import type { Creator, Platform } from "@/lib/types";
 import type { CreatorDTO } from "@/lib/api/helpers";
 import { cn } from "@/lib/utils";
@@ -84,6 +86,8 @@ function dtoToCreator(dto: CreatorDTO): Creator {
 }
 
 export default function CreatorsPage() {
+  const router = useRouter();
+  const toast = useToast();
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState<FilterPlatform>("all");
   const [nicheFilter, setNicheFilter] = useState<string | null>(null);
@@ -92,6 +96,11 @@ export default function CreatorsPage() {
   const [sortBy, setSortBy] = useState<SortKey>("none");
   const { triggerUpsell } = useUpsell();
   const { profile } = useUser();
+
+  const handleBonusClaimable = useCallback((bonus: { reward: number }) => {
+    toast.success(`Bonus débloqué ! Récupère tes ${bonus.reward} BP sur le dashboard.`);
+    setTimeout(() => router.push("/dashboard"), 1500);
+  }, [toast, router]);
 
   const {
     creators: watchlistCreators,
@@ -374,6 +383,7 @@ export default function CreatorsPage() {
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onAdd={handleAddCreator}
+        onBonusClaimable={handleBonusClaimable}
       />
     </div>
   );
@@ -665,10 +675,12 @@ function AddCreatorModal({
   open,
   onClose,
   onAdd,
+  onBonusClaimable,
 }: {
   open: boolean;
   onClose: () => void;
   onAdd: () => void;
+  onBonusClaimable?: (bonus: { reward: number }) => void;
 }) {
   type Tab = "handle" | "name";
   const [tab, setTab] = useState<Tab>("handle");
@@ -736,11 +748,13 @@ function AddCreatorModal({
     if (success && creatorId) {
       setScrapeApiDone(true);
       await new Promise((r) => setTimeout(r, 900));
-      await fetch("/api/watchlist", {
+      const watchRes = await fetch("/api/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ creator_id: creatorId }),
       });
+      const watchData = await watchRes.json().catch(() => ({}));
+      if (watchData.bonusClaimable && onBonusClaimable) onBonusClaimable(watchData.bonusClaimable);
       // Fire-and-forget: scrape the first 30 videos silently in background
       fetch(`/api/creators/${creatorId}/videos`, {
         method: "POST",
@@ -783,11 +797,13 @@ function AddCreatorModal({
       const data = await res.json();
       if (!res.ok) { setAddError(data.error ?? "Erreur lors de l'ajout"); setAddingProfile(false); return; }
       if (data.creator) {
-        await fetch("/api/watchlist", {
+        const watchRes = await fetch("/api/watchlist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ creator_id: data.creator.id }),
         });
+        const watchData = await watchRes.json().catch(() => ({}));
+        if (watchData.bonusClaimable && onBonusClaimable) onBonusClaimable(watchData.bonusClaimable);
         // Fire-and-forget: scrape the first 30 videos silently in background
         fetch(`/api/creators/${data.creator.id}/videos`, {
           method: "POST",

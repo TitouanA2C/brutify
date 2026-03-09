@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { toVideoDTO, toCreatorDTO } from "@/lib/api/helpers"
+import { isValidUuid } from "@/lib/security"
 
 export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
+  if (!isValidUuid(params.id)) {
+    return NextResponse.json({ error: "ID invalide" }, { status: 400 })
+  }
+
   const supabase = createClient()
 
   const {
@@ -40,22 +45,28 @@ export async function GET(
         .maybeSingle()
     : { data: null }
 
-  const { data: transcription } = await supabase
-    .from("transcriptions")
-    .select("id, content, language, created_at")
-    .eq("video_id", params.id)
-    .maybeSingle()
+  const inWatchlist = !!watchlistRow
 
-  const { data: analysis } = await supabase
-    .from("video_analyses")
-    .select("id, hook_type, hook_analysis, structure_type, structure_analysis, style_analysis, created_at")
-    .eq("video_id", params.id)
-    .maybeSingle()
+  const { data: transcription } = inWatchlist
+    ? await supabase
+        .from("transcriptions")
+        .select("id, content, language, created_at")
+        .eq("video_id", params.id)
+        .maybeSingle()
+    : { data: null }
+
+  const { data: analysis } = inWatchlist
+    ? await supabase
+        .from("video_analyses")
+        .select("id, hook_type, hook_analysis, structure_type, structure_analysis, style_analysis, created_at")
+        .eq("video_id", params.id)
+        .maybeSingle()
+    : { data: null }
 
   return NextResponse.json({
     video: toVideoDTO(video),
     creator: creator
-      ? toCreatorDTO(creator, { isInWatchlist: !!watchlistRow })
+      ? toCreatorDTO(creator, { isInWatchlist: inWatchlist })
       : null,
     transcription,
     analysis,

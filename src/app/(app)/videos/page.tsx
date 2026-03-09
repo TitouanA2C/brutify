@@ -14,9 +14,11 @@ const VideoDetailModal = dynamic(
   { ssr: false }
 );
 import { useVideos } from "@/hooks/useVideos";
+import { useCreateBoardItem } from "@/hooks/useBoard";
 import type { Video, Platform } from "@/lib/types";
 import type { VideoFeedItemDTO } from "@/lib/api/helpers";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { useToast } from "@/lib/toast-context";
 import { cn } from "@/lib/utils";
 
 export default function VideosPageWrapper() {
@@ -129,6 +131,16 @@ function VideosPage() {
   const handleForge = useCallback((video: Video) => {
     router.push(`/scripts?source_video_id=${video.id}`);
   }, [router]);
+
+  const { create: createBoardItem } = useCreateBoardItem();
+  const toast = useToast();
+  const handleAddToInspiration = useCallback(async (video: Video) => {
+    const result = await createBoardItem({ title: video.title || "Vidéo inspiration", status: "inspiration", source_video_id: video.id });
+    if (result?.bonusClaimable) {
+      toast.success(`Bonus débloqué ! Récupère tes ${result.bonusClaimable.reward} BP sur le dashboard.`);
+      setTimeout(() => router.push("/dashboard"), 1500);
+    }
+  }, [createBoardItem, toast, router]);
 
   const { creators: watchlistCreatorsDTO } = useWatchlist();
   const watchlistedCreators = watchlistCreatorsDTO.map((c) => ({
@@ -264,6 +276,7 @@ function VideosPage() {
                     setSelectedCreator(creatorMini ?? null);
                   }}
                   onForge={handleForge}
+                  onAddToInspiration={handleAddToInspiration}
                 />
               </motion.div>
             ))}

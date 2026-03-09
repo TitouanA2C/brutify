@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import Stripe from "stripe"
-import { stripe, getPlanByPriceId } from "@/lib/stripe/config"
+import { stripe, getPlanByPriceId, TRIAL_CREDITS } from "@/lib/stripe/config"
 import { createServiceClient } from "@/lib/supabase/server"
 
 export async function POST(request: Request) {
@@ -10,26 +10,38 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event
 
-  // ⚠️ EN DEV : Skip la vérification de signature pour tester localement
-  // En prod, Vercel recevra les vrais webhooks signés de Stripe
-  if (process.env.NODE_ENV === "development" && !sig) {
-    event = JSON.parse(body) as Stripe.Event
-  } else {
+  // En production : signature obligatoire, jamais de bypass
+  const isProduction = process.env.NODE_ENV === "production"
+  if (isProduction) {
     if (!sig) {
       return NextResponse.json({ error: "Signature manquante" }, { status: 400 })
     }
-
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
     if (!webhookSecret) {
       return NextResponse.json({ error: "Webhook secret non configuré" }, { status: 500 })
     }
-
     try {
       event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Signature invalide"
       console.error("[Stripe Webhook] Verification failed:", message)
       return NextResponse.json({ error: message }, { status: 400 })
+    }
+  } else {
+    // Dev uniquement : bypass possible pour tester sans Stripe CLI
+    if (!sig) {
+      event = JSON.parse(body) as Stripe.Event
+    } else {
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+      if (!webhookSecret) {
+        return NextResponse.json({ error: "Webhook secret non configuré" }, { status: 500 })
+      }
+      try {
+        event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Signature invalide"
+        return NextResponse.json({ error: message }, { status: 400 })
+      }
     }
   }
 
@@ -116,7 +128,8 @@ async function handleSubscriptionCreated(
     return
   }
 
-  // Vérifier si user est en période d'essai (7 premiers jours)
+  const isTrialing = subscription.status === "trialing"
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("created_at, activation_bonuses")
@@ -127,19 +140,20 @@ async function handleSubscriptionCreated(
     ? Date.now() - new Date(profile.created_at).getTime()
     : 0
   const isEarlyUpgrade = accountAge <= 7 * 24 * 60 * 60 * 1000
-  const earlyUpgradeBonus = isEarlyUpgrade ? 300 : 0
+  const earlyUpgradeBonus = isEarlyUpgrade && !isTrialing ? 300 : 0
   const activationBonuses = profile?.activation_bonuses || {}
 
-  // Marquer le bonus early_upgrade comme débloqué
   const newActivationBonuses = isEarlyUpgrade
     ? { ...activationBonuses, early_upgrade: true }
     : activationBonuses
+
+  const creditsToGrant = isTrialing ? TRIAL_CREDITS : plan.config.credits + earlyUpgradeBonus
 
   await supabase
     .from("profiles")
     .update({
       plan: plan.key,
-      credits: plan.config.credits + earlyUpgradeBonus,
+      credits: creditsToGrant,
       activation_bonuses: newActivationBonuses,
       stripe_customer_id:
         typeof session.customer === "string"
@@ -153,12 +167,12 @@ async function handleSubscriptionCreated(
 
   await supabase.from("credit_transactions").insert({
     user_id: userId,
-    amount: plan.config.credits,
-    action: "plan_upgrade",
+    amount: creditsToGrant,
+    action: isTrialing ? "trial_start" : "plan_upgrade",
     reference_id: subscriptionId,
   })
 
-  if (earlyUpgradeBonus > 0) {
+  if (earlyUpgradeBonus > 0 && !isTrialing) {
     await supabase.from("credit_transactions").insert({
       user_id: userId,
       amount: earlyUpgradeBonus,

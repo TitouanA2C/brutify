@@ -30,6 +30,8 @@ interface VideoCardProps {
   creator: Creator | undefined;
   onClick: (video: Video) => void;
   onForge?: (video: Video) => void;
+  /** Ajouter la vidéo au BrutBoard en étape Inspiration */
+  onAddToInspiration?: (video: Video) => void;
 }
 
 function OutlierBadge({ score }: { score: number }) {
@@ -52,8 +54,9 @@ function OutlierBadge({ score }: { score: number }) {
   return <Badge variant="neutral">{score}x</Badge>;
 }
 
-export function VideoCard({ video, creator, onClick, onForge }: VideoCardProps) {
+export function VideoCard({ video, creator, onClick, onForge, onAddToInspiration }: VideoCardProps) {
   const [imgError, setImgError] = useState(false);
+  const [addedToInspiration, setAddedToInspiration] = useState(false);
   const proxiedThumbnail = proxyImg(video.thumbnailUrl);
   const showThumbnail = !!proxiedThumbnail && !imgError;
 
@@ -187,14 +190,19 @@ export function VideoCard({ video, creator, onClick, onForge }: VideoCardProps) 
             Analyse IA
           </button>
           <button
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation();
+              if (onAddToInspiration && !addedToInspiration) {
+                await onAddToInspiration(video);
+                setAddedToInspiration(true);
+              }
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] font-body font-medium text-brutify-text-secondary transition-all duration-150 hover:border-white/[0.1] hover:bg-white/[0.04] hover:text-brutify-text-primary hover:scale-102 active:scale-98 cursor-pointer"
+            disabled={!onAddToInspiration || addedToInspiration}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] font-body font-medium text-brutify-text-secondary transition-all duration-150 hover:border-white/[0.1] hover:bg-white/[0.04] hover:text-brutify-text-primary hover:scale-102 active:scale-98 cursor-pointer disabled:opacity-60 disabled:cursor-default"
             style={{ willChange: 'transform' }}
           >
             <Bookmark className="h-3 w-3" />
-            Vault
+            {addedToInspiration ? "Ajouté" : "Inspiration"}
           </button>
         </div>
       </div>

@@ -8,7 +8,7 @@ import {
 } from "@/lib/scraping/instagram"
 import { toVideoDTO } from "@/lib/api/helpers"
 import { createNotification } from "@/lib/notifications"
-import { checkAndUnlockBonus } from "@/lib/activation-triggers"
+import { checkAndUnlockBonus, getClaimableBonusAfterAction } from "@/lib/activation-triggers"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/supabase/types"
 
@@ -177,10 +177,16 @@ export async function GET(
     metadata: { creatorId: creator.id, handle: creator.handle, videoCount: scored.length },
   }).catch(() => {})
 
-  // Vérifier et débloquer bonus d'activation
+  let bonusClaimable: { id: string; name: string; reward: number } | null = null
   if (scored.length >= 5) {
     checkAndUnlockBonus(user.id, "scrape_videos").catch(() => {})
+    const serviceSupabase = createServiceClient()
+    bonusClaimable = await getClaimableBonusAfterAction(serviceSupabase, user.id, "scrape_videos")
   }
 
-  return NextResponse.json({ status: "done", count: scored.length, videos })
+  return NextResponse.json(
+    bonusClaimable
+      ? { status: "done", count: scored.length, videos, bonusClaimable }
+      : { status: "done", count: scored.length, videos }
+  )
 }

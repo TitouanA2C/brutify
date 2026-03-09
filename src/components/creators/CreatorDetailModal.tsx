@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -30,6 +31,7 @@ import type { CreatorAnalysisResult } from "@/lib/ai/creator-analysis";
 import { useCredits } from "@/lib/credits-context";
 import { useUpsell } from "@/hooks/useUpsellTrigger";
 import { useUser } from "@/hooks/useUser";
+import { useToast } from "@/lib/toast-context";
 import { Loading } from "@/components/ui/Loading";
 
 const VEILLE_STEPS = [
@@ -242,6 +244,8 @@ export function CreatorDetailModal({
   onClose,
   onToggleWatchlist,
 }: CreatorDetailModalProps) {
+  const router = useRouter();
+  const toast = useToast();
   const { triggerUpsell } = useUpsell();
   const { profile } = useUser();
   const { credits: liveCredits } = useCredits();
@@ -419,6 +423,10 @@ export function CreatorDetailModal({
         if (json.status === "done") {
           if (json.videos && Array.isArray(json.videos)) setScrapedVideosRaw(json.videos);
           mutate();
+          if (json.bonusClaimable) {
+            toast.success(`Bonus débloqué ! Récupère tes ${json.bonusClaimable.reward} BP sur le dashboard.`);
+            setTimeout(() => router.push("/dashboard"), 1500);
+          }
         } else {
           setScrapeError(json.error ?? "Le scraping a échoué");
         }

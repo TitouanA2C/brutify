@@ -39,6 +39,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true)
   const initDone = useRef(false)
 
+  const fetchProfileFromApi = useCallback(async (): Promise<Profile | null> => {
+    try {
+      const res = await fetch("/api/profile")
+      if (!res.ok) return null
+      const data = await res.json()
+      const p = data.profile as Profile | null
+      if (p && mountedRef.current) {
+        setProfile(p)
+        profileRef.current = p
+        log("profile loaded from API", { plan: p.plan })
+        return p
+      }
+      return null
+    } catch {
+      return null
+    }
+  }, [])
+
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     for (let attempt = 1; attempt <= 3; attempt++) {
       const { data, error } = await supabase
@@ -65,9 +83,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    log("fetchProfile FAILED after 3 attempts")
-    return null
-  }, [supabase])
+    log("fetchProfile FAILED, falling back to API")
+    return fetchProfileFromApi()
+  }, [supabase, fetchProfileFromApi])
 
   useEffect(() => {
     mountedRef.current = true
@@ -137,35 +155,45 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [supabase, fetchProfile])
 
-  // Safety net: si après 3s le profil est toujours null mais on a un user, retry
+  // Safety net: si le profil est toujours null avec un user, charger via l'API serveur (plan correct en prod)
   useEffect(() => {
     if (profile || !user || loading) return
 
-    log("safety net: profile null with user present, retrying in 2s")
-    const timer = setTimeout(async () => {
+    log("safety net: profile null with user present, fetching from API")
+    const timer = setTimeout(() => {
       if (!profileRef.current && userRef.current) {
-        await fetchProfile(userRef.current.id)
+        fetchProfileFromApi()
       }
-    }, 2000)
+    }, 1500)
 
     return () => clearTimeout(timer)
-  }, [profile, user, loading, fetchProfile])
+  }, [profile, user, loading, fetchProfileFromApi])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
-    userRef.current = null
-    profileRef.current = null
-    setUser(null)
-    setProfile(null)
-    window.location.href = "/login"
+    const doRedirect = () => {
+      userRef.current = null
+      profileRef.current = null
+      setUser(null)
+      setProfile(null)
+      window.location.replace("/login")
+    }
+    try {
+      const timeout = setTimeout(doRedirect, 3000)
+      await supabase.auth.signOut()
+      clearTimeout(timeout)
+      doRedirect()
+    } catch (e) {
+      console.warn("[UserProvider] signOut error", e)
+      doRedirect()
+    }
   }, [supabase])
 
   const refreshProfile = useCallback(async () => {
     const u = userRef.current
-    if (u) {
-      await fetchProfile(u.id)
-    }
-  }, [fetchProfile])
+    if (!u) return
+    const fromApi = await fetchProfileFromApi()
+    if (!fromApi) await fetchProfile(u.id)
+  }, [fetchProfileFromApi, fetchProfile])
 
   return (
     <UserContext.Provider

@@ -30,6 +30,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PLANS, type PlanKey } from "@/lib/stripe/config";
 import { BrutifyLogo } from "@/components/ui/BrutifyLogo";
 import { VideoPlayer } from "@/components/ui/VideoPlayer";
 import { DotPattern } from "@/components/magicui/dot-pattern";
@@ -2099,63 +2100,21 @@ function Pricing() {
   const inView = useInView(ref, { once: true, margin: "-80px" });
   const [annual, setAnnual] = useState(false);
 
-  const plans = [
-    {
-      name: "Creator",
-      desc: "Pour ceux qui veulent commencer à scaler leur contenu — simple, rapide et efficace.",
-      price: annual ? 14 : 19,
-      bp: "500 BP / mois",
-      highlight: "~250 scripts / mois",
-      includes: "Inclus :",
-      features: [
-        "Scripts IA illimités",
-        "Transcription vidéo",
-        "Analyse concurrentielle",
-        "BrutBoard & Banque d'idées",
-        "Radar jusqu'à 10 créateurs",
-        "Dashboard créateurs complet",
-      ],
-      popular: false,
-      trialText: "7 jours d'essai gratuit · Sans CB",
-    },
-    {
-      name: "Growth",
-      desc: "Pour les créateurs sérieux qui veulent analyse, transcription et automatisation.",
-      price: annual ? 28 : 39,
-      bp: "2 000 BP / mois",
-      highlight: "~1 000 scripts ou 400 analyses",
-      includes: "Tout Creator, plus :",
-      features: [
-        "5 transcriptions gratuites / mois",
-        "Auto-transcription ≤ 2 min",
-        "Transcription vidéo (3 BP)",
-        "Analyse IA deep (5 BP)",
-        "Analyse concurrentielle (30 BP)",
-        "Inspiration IA vault (4 BP)",
-        "Radar illimité",
-      ],
-      popular: true,
-      trialText: null,
-    },
-    {
-      name: "Scale",
-      desc: "Pour les équipes et agences qui veulent opérer à grande échelle.",
-      price: annual ? 57 : 79,
-      bp: "6 000 BP / mois",
-      highlight: "~3 000 scripts ou 1 200 analyses",
-      includes: "Tout Growth, plus :",
-      features: [
-        "10 transcriptions gratuites / mois",
-        "Auto-transcription ≤ 10 min",
-        "1 analyse concurrentielle / mois offerte",
-        "Multi-utilisateurs (3 seats)",
-        "Export scripts & analyses",
-        "Support prioritaire",
-      ],
-      popular: false,
-      trialText: null,
-    },
-  ];
+  const planKeys: PlanKey[] = ["creator", "growth", "scale"];
+  const plans = planKeys.map((key) => {
+    const p = PLANS[key];
+    return {
+      name: p.name,
+      desc: p.description ?? p.tagline,
+      price: annual ? p.yearlyPrice : p.monthlyPrice,
+      bp: `${p.credits.toLocaleString("fr-FR")} BP / mois`,
+      highlight: p.highlight ?? "",
+      includes: p.includes ?? "Inclus :",
+      features: p.features,
+      popular: p.popular ?? false,
+      trialText: p.trialText ?? null,
+    };
+  });
 
   return (
     <section id="pricing" className="py-24 px-6 border-t border-white/[0.04]" ref={ref}>
@@ -2310,7 +2269,7 @@ const faqTabs = {
     { q: "Est-ce que je dois connecter mes réseaux sociaux ?", a: "Non. Brutify est un outil de recherche, d'analyse et de rédaction. Tu n'as pas besoin de connecter tes comptes. On analyse les contenus publics des créateurs que tu suis." },
     { q: "Comment sont détectés les outliers ?", a: "Notre algorithme compare les performances de chaque vidéo à la moyenne du créateur. Un outlier de 10x signifie que la vidéo a fait 10 fois plus de vues que la moyenne." },
     { q: "Quelles plateformes sont supportées ?", a: "Instagram (Reels), TikTok et YouTube (Shorts et long format). Nous ajoutons régulièrement de nouvelles plateformes." },
-    { q: "Combien de créateurs je peux suivre ?", a: "Ça dépend de ton plan. Le plan Creator permet 50 créateurs, Growth et Scale sont illimités." },
+    { q: "Combien de créateurs je peux suivre ?", a: "Ça dépend de ton plan. Le plan Creator permet jusqu'à 10 créateurs au Radar, Growth et Scale sont illimités." },
   ],
   Facturation: [
     { q: "Je peux changer de plan ?", a: "Oui, tu peux upgrader ou downgrader ton plan à tout moment depuis les paramètres. Le changement est effectif immédiatement." },

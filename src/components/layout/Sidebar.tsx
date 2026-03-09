@@ -10,7 +10,6 @@ import {
   Play,
   PenTool,
   LayoutDashboard,
-  Bookmark,
   Settings,
   CreditCard,
   X,
@@ -22,6 +21,7 @@ import {
   TrendingUp,
   FileText,
   Zap,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/useUser";
@@ -36,7 +36,6 @@ const navItems = [
   { href: "/videos", label: "Vidéos", icon: Play },
   { href: "/scripts", label: "Scripts", icon: PenTool },
   { href: "/board", label: "BrutBoard", icon: Home },
-  { href: "/vault", label: "Banque d'idées", icon: Bookmark },
 ];
 
 interface SidebarProps {
@@ -80,17 +79,26 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [notifOpen]);
 
-  const { profile } = useUser();
-  const { credits, maxCredits } = useCredits();
+  const { user, profile, signOut } = useUser();
+  const { credits, maxCredits, creditsLoaded } = useCredits();
   const profileLoaded = !!profile?.id;
+  const bpLoaded = creditsLoaded;
   const pct = maxCredits > 0 ? Math.round((credits / maxCredits) * 100) : 0;
-  const isLow = profileLoaded && pct <= 10;
-  const isWarning = profileLoaded && pct <= 20;
-  const isEmpty = profileLoaded && credits === 0;
+  const isLow = bpLoaded && pct <= 10;
+  const isWarning = bpLoaded && pct <= 20;
+  const isEmpty = bpLoaded && credits === 0;
   const borrowedCredits = profile?.borrowed_credits ?? 0;
   const rolloverCredits = profile?.rollover_credits ?? 0;
 
-  const userName = profile?.full_name ?? "Utilisateur";
+  const profileName = profile?.full_name?.trim();
+  const authName =
+    (user?.user_metadata?.full_name as string | undefined)?.trim() ||
+    (user?.user_metadata?.name as string | undefined)?.trim();
+  const userName =
+    (profileName && profileName.length > 2 ? profileName : null) ??
+    authName ??
+    (user?.email ? user.email.split("@")[0] : null) ??
+    "Utilisateur";
   const userPlan = profile?.plan ?? "creator";
   const initials = userName
     .split(" ")
@@ -268,7 +276,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   "font-display text-xl leading-none tracking-wider",
                   isLow ? "text-red-400" : "text-gold-gradient"
                 )}>
-                  {profileLoaded ? credits : "—"}
+                  {bpLoaded ? credits : "—"}
                 </span>
                 {(borrowedCredits > 0 || rolloverCredits > 0) && (
                   <div className="text-[9px] font-body text-white/50 mt-0.5 space-y-0.5">
@@ -298,7 +306,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               >
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: profileLoaded ? `${Math.min(pct, 100)}%` : "0%" }}
+                  animate={{ width: bpLoaded ? `${Math.min(pct, 100)}%` : "0%" }}
                   transition={{ duration: 1, delay: 0.3, ease: expoOut }}
                   className={cn(
                     "h-full rounded-full",
@@ -315,10 +323,10 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   "text-[10px] font-body",
                   isLow ? "text-red-400 font-semibold" : "text-brutify-text-muted/60"
                 )}>
-                  {!profileLoaded ? "Chargement…" : isLow ? "⚠️ Critique" : isWarning ? "⚠ Attention" : `${pct}% restant`}
+                  {!bpLoaded ? "Chargement…" : isLow ? "⚠️ Critique" : isWarning ? "⚠ Attention" : `${pct}% restant`}
                 </span>
                 <span className="text-[10px] font-body text-brutify-text-muted/40">
-                  {maxCredits} max
+                  {bpLoaded ? `${maxCredits} max` : "— max"}
                 </span>
               </div>
             </div>
@@ -475,6 +483,16 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             </p>
           </div>
           <Settings className="h-3.5 w-3.5 text-brutify-text-muted/40 group-hover:text-brutify-text-muted group-hover:rotate-45 transition-all duration-300" />
+        </Link>
+
+        {/* Se déconnecter — API serveur efface les cookies puis redirige */}
+        <Link
+          href="/api/auth/logout"
+          onClick={onMobileClose}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-body font-medium text-brutify-text-muted hover:text-brutify-danger hover:bg-brutify-danger/[0.06] transition-colors duration-150 cursor-pointer"
+        >
+          <LogOut className="h-3.5 w-3.5 shrink-0" />
+          Se déconnecter
         </Link>
       </div>
     </aside>

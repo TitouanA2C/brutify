@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { toCreatorDTO } from "@/lib/api/helpers"
-import { checkAndUnlockBonus } from "@/lib/activation-triggers"
+import { checkAndUnlockBonus, getClaimableBonusAfterAction } from "@/lib/activation-triggers"
 
 export async function GET() {
   const supabase = createClient()
@@ -121,8 +121,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Vérifier et débloquer bonus d'activation
   checkAndUnlockBonus(user.id, "follow_creator").catch(() => {})
+  const serviceSupabase = createServiceClient()
+  const bonusClaimable = await getClaimableBonusAfterAction(serviceSupabase, user.id, "follow_creator")
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json(
+    bonusClaimable ? { success: true, bonusClaimable } : { success: true }
+  )
 }

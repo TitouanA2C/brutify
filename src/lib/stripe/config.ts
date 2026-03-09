@@ -32,9 +32,13 @@ export interface PlanConfig {
   credits: number                 // BP par mois
   pricePerBp: number              // €/BP au tarif mensuel
   trialDays?: number
+  trialText?: string | null       // ex. "7 jours d'essai gratuit · Carte requise"
   features: string[]
+  includes?: string               // ex. "Tout Creator, plus :" (LP)
   highlight?: string              // accroche conversion (ROI framing)
   popular?: boolean
+  bpDiscount?: number             // % réduction sur recharges BP (-15, -25, -40)
+  description?: string            // description longue (LP)
 }
 
 // ─── Stratégie pricing ────────────────────────────────────────────────────────
@@ -45,12 +49,17 @@ export interface PlanConfig {
 //  Scale   (mensuel)   : 0.013€/BP  → 86% moins cher que packs
 //
 //  Annuel = 3 mois offerts sur tous les plans (save ~33%)
+//  Essai gratuit Creator : quota réduit pour limiter l'abus (full 500 au 1er paiement).
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** BP offerts pendant les 7 jours d'essai gratuit (au lieu du quota mensuel complet). */
+export const TRIAL_CREDITS = 100
 
 export const PLANS: Record<PlanKey, PlanConfig> = {
   creator: {
     name: "Creator",
     tagline: "Pour commencer à scaler",
+    description: "Pour ceux qui veulent commencer à scaler leur contenu — simple, rapide et efficace.",
     monthlyPriceId: process.env.STRIPE_CREATOR_MONTHLY_PRICE_ID ?? "price_creator_monthly",
     yearlyPriceId:  process.env.STRIPE_CREATOR_YEARLY_PRICE_ID  ?? "price_creator_yearly",
     monthlyPrice: 19,
@@ -61,18 +70,25 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
     credits: 500,
     pricePerBp: 0.038,
     trialDays: 7,
+    trialText: "7 jours d'essai gratuit · Carte requise",
     features: [
       "500 Brutpoints / mois",
-      "Scripts IA illimités (2 BP)",
-      "BrutBoard & Banque d'idées",
-      "Dashboard créateurs",
-      "Radar (jusqu'à 10 créateurs)",
+      "Scripts IA illimités",
+      "3 transcriptions gratuites / mois",
+      "Transcription vidéo",
+      "Analyse concurrentielle",
+      "BrutBoard",
+      "Dashboard créateurs complet",
+      "Radar jusqu'à 10 créateurs",
+      "-15% sur recharges BP",
     ],
-    highlight: "~250 scripts par mois",
+    highlight: "~250 scripts / mois",
+    bpDiscount: 15,
   },
   growth: {
     name: "Growth",
     tagline: "Pour les créateurs sérieux",
+    description: "Pour les créateurs sérieux qui veulent analyse, transcription et automatisation.",
     monthlyPriceId: process.env.STRIPE_GROWTH_MONTHLY_PRICE_ID ?? "price_growth_monthly",
     yearlyPriceId:  process.env.STRIPE_GROWTH_YEARLY_PRICE_ID  ?? "price_growth_yearly",
     monthlyPrice: 39,
@@ -85,18 +101,24 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
     features: [
       "2 000 Brutpoints / mois",
       "Tout Creator inclus",
+      "5 transcriptions gratuites / mois",
+      "Auto-transcription ≤ 2 min",
       "Transcription vidéo (3 BP)",
       "Analyse IA deep (5 BP)",
-      "Inspiration IA vault (4 BP)",
+      "Analyse concurrentielle (30 BP)",
+      "Inspiration IA (4 BP)",
       "Radar illimité",
-      "Personnalisation ton & style",
+      "-25% sur recharges BP",
     ],
+    includes: "Tout Creator, plus :",
     highlight: "~1 000 scripts ou 400 analyses / mois",
     popular: true,
+    bpDiscount: 25,
   },
   scale: {
     name: "Scale",
     tagline: "Pour les équipes & agences",
+    description: "Pour les équipes et agences qui veulent opérer à grande échelle.",
     monthlyPriceId: process.env.STRIPE_SCALE_MONTHLY_PRICE_ID ?? "price_scale_monthly",
     yearlyPriceId:  process.env.STRIPE_SCALE_YEARLY_PRICE_ID  ?? "price_scale_yearly",
     monthlyPrice: 79,
@@ -109,12 +131,17 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
     features: [
       "6 000 Brutpoints / mois",
       "Tout Growth inclus",
+      "10 transcriptions gratuites / mois",
+      "Auto-transcription ≤ 10 min",
+      "1 analyse concurrentielle / mois offerte",
       "Multi-utilisateurs (3 seats)",
       "Export scripts & analyses",
       "Support prioritaire",
-      "API access (bientôt)",
+      "-40% sur recharges BP",
     ],
+    includes: "Tout Growth, plus :",
     highlight: "~3 000 scripts ou 1 200 analyses / mois",
+    bpDiscount: 40,
   },
 } as const
 
@@ -241,6 +268,13 @@ export const PROMO_CODES: Record<string, PromoCodeConfig> = {
     stripeCouponId: "SCALEBONUS",
     discount: 0,
     description: "+1000 BP offerts le 1er mois",
+  },
+  /** Offre bienvenue onboarding : -40% sur le 1er mois Growth. Créer dans Stripe : percent_off=40, duration=once */
+  ONBOARDING_GROWTH_40: {
+    code: "ONBOARDING_GROWTH_40",
+    stripeCouponId: "ONBOARDING_GROWTH_40",
+    discount: 40,
+    description: "-40% sur le 1er mois Growth (offre bienvenue)",
   },
 }
 

@@ -73,13 +73,14 @@ export function EarlyUpgradeBanner() {
         transition={{ duration: 0.3 }}
         className="relative mb-6 rounded-2xl border border-brutify-gold/30 bg-gradient-to-r from-brutify-gold/10 via-brutify-gold/5 to-transparent p-4 shadow-[0_0_30px_rgba(255,171,0,0.15)]"
       >
-        {/* Glow effect */}
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-brutify-gold/5 to-transparent blur-xl" />
+        {/* Glow effect (ne doit pas bloquer les clics) */}
+        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r from-brutify-gold/5 to-transparent blur-xl" />
 
         {/* Close button */}
         <button
+          type="button"
           onClick={() => setDismissed(true)}
-          className="absolute top-3 right-3 text-white/40 hover:text-white/70 transition-colors"
+          className="absolute top-3 right-3 z-10 rounded p-1 text-white/40 hover:text-white/70 transition-colors"
           aria-label="Fermer"
         >
           <X className="h-4 w-4" />

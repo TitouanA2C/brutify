@@ -38,12 +38,13 @@ import { CreditConfirmModal } from "@/components/ui/CreditConfirmModal";
 import { useGenerateScript } from "@/hooks/useScripts";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { useCreateVaultItem } from "@/hooks/useVault";
-import { useCreateBoardItem, useUpdateBoardItem } from "@/hooks/useBoard";
+import { useBoard, useCreateBoardItem, useUpdateBoardItem, type BoardItem } from "@/hooks/useBoard";
 import { UpgradeModal } from "@/components/ui/UpgradeModal";
 import { Loading } from "@/components/ui/Loading";
 import { CreditToast } from "@/components/ui/CreditToast";
 import { useUpsell } from "@/hooks/useUpsellTrigger";
 import { useUser } from "@/hooks/useUser";
+import { useToast } from "@/lib/toast-context";
 import { DatePicker } from "@/components/ui/DatePicker";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -159,11 +160,14 @@ interface InsightsResponse {
 function ScriptsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const toastCtx = useToast();
   const sourceVideoId = searchParams.get("source_video_id");
   const editScriptId = searchParams.get("edit");
   const prefillSubject = searchParams.get("prefill_subject");
-  
+  const boardItemIdParam = searchParams.get("board_item_id");
+
   const { data: insights } = useSWR<InsightsResponse>("/api/scripts/insights");
+  const { items: boardItems } = useBoard();
 
   const hookTemplates: HookTemplate[] = useMemo(() => {
     if (!insights?.hooks) return [];
@@ -186,7 +190,25 @@ function ScriptsPageContent() {
     }));
   }, [insights]);
 
+  // Idées du board : uniquement la catégorie "Idée" (pas brouillon ni inspiration)
+  const boardIdeas = useMemo(() => {
+    return boardItems.filter((i) => (i.status ?? "") === "idea");
+  }, [boardItems]);
+
+  // Sujets tirés de la veille concurrentielle (insights API)
+  const veilleTopics = useMemo(() => {
+    if (!insights?.topics?.length) return [];
+    return insights.topics.map((t, i) => ({
+      id: `veille-${i}`,
+      name: t.name,
+      category: t.category,
+      example: t.example ?? "",
+      avg_outlier_score: t.avg_outlier_score ?? 0,
+    }));
+  }, [insights?.topics]);
+
   const [subject, setSubject] = useState(prefillSubject ?? "");
+  const [selectedVeilleTopicId, setSelectedVeilleTopicId] = useState<string | null>(null);
   const [selectedHook, setSelectedHook] = useState<HookTemplate | null>(null);
   const [selectedStructure, setSelectedStructure] =
     useState<ScriptStructure | null>(null);
@@ -546,6 +568,16 @@ function ScriptsPageContent() {
     return () => { cancelled = true; };
   }, [savedScriptId]);
 
+  // Préremplir sujet + liaison board depuis l’URL ?board_item_id=...
+  useEffect(() => {
+    if (!boardItemIdParam || !boardItems.length) return;
+    const item = boardItems.find((i) => i.id === boardItemIdParam);
+    if (item) {
+      setBoardItemId(item.id);
+      setSubject((prev) => prev.trim() ? prev : (item.title ?? ""));
+    }
+  }, [boardItemIdParam, boardItems]);
+
   // Auto-save planning dates
   const planTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -632,6 +664,10 @@ function ScriptsPageContent() {
         setAiNotes(result.sections.ai_notes);
         setSavedScriptId(result.script.id);
         setForgeState("done");
+        if (result.bonusClaimable) {
+          toastCtx.success(`Bonus débloqué ! Récupère tes ${result.bonusClaimable.reward} BP sur le dashboard.`);
+          setTimeout(() => router.push("/dashboard"), 1500);
+        }
         if (result.credits_consumed > 0) {
           addUsage("Script forgé — " + subject.slice(0, 40), result.credits_consumed);
           setToast({
@@ -659,13 +695,17 @@ function ScriptsPageContent() {
 
         // Auto-save to BrutBoard
         try {
-          const boardItem = await createBoardItem({
+          const boardResult = await createBoardItem({
             title: editHook || subject || "Script forgé",
             status: "draft",
             script_id: result.script.id,
           });
-          if (boardItem?.id) setBoardItemId(boardItem.id);
+          if (boardResult?.item?.id) setBoardItemId(boardResult.item.id);
           setSavedBoard(true);
+          if (boardResult?.bonusClaimable) {
+            toastCtx.success(`Bonus débloqué ! Récupère tes ${boardResult.bonusClaimable.reward} BP sur le dashboard.`);
+            setTimeout(() => router.push("/dashboard"), 1500);
+          }
         } catch { /* silent */ }
 
         // Déclenchement des upsells selon le contexte
@@ -783,32 +823,41 @@ function ScriptsPageContent() {
   const handleAddToBoard = useCallback(async () => {
     if (savingBoard || savedBoard) return;
     try {
-      const boardItem = await createBoardItem({
+      const boardResult = await createBoardItem({
         title: editHook || subject || "Script forgé",
         status: "draft",
         script_id: savedScriptId ?? undefined,
       });
-      if (boardItem?.id) setBoardItemId(boardItem.id);
+      if (boardResult?.item?.id) setBoardItemId(boardResult.item.id);
       setSavedBoard(true);
+      if (boardResult?.bonusClaimable) {
+        toastCtx.success(`Bonus débloqué ! Récupère tes ${boardResult.bonusClaimable.reward} BP sur le dashboard.`);
+        setTimeout(() => router.push("/dashboard"), 1500);
+      }
     } catch {
       /* silently fail */
     }
-  }, [savingBoard, savedBoard, subject, savedScriptId, createBoardItem]);
+  }, [savingBoard, savedBoard, subject, savedScriptId, createBoardItem, toast, router]);
 
   const handleSaveAndGoBoard = useCallback(async () => {
     if (!savedBoard) {
       try {
-        const boardItem = await createBoardItem({
+        const boardResult = await createBoardItem({
           title: editHook || subject || "Script forgé",
           status: "draft",
           script_id: savedScriptId ?? undefined,
         });
-        if (boardItem?.id) setBoardItemId(boardItem.id);
+        if (boardResult?.item?.id) setBoardItemId(boardResult.item.id);
         setSavedBoard(true);
+        if (boardResult?.bonusClaimable) {
+          toastCtx.success(`Bonus débloqué ! Récupère tes ${boardResult.bonusClaimable.reward} BP sur le dashboard.`);
+          setTimeout(() => router.push("/dashboard"), 1500);
+          return;
+        }
       } catch { /* silently fail */ }
     }
     router.push("/board");
-  }, [savedBoard, subject, savedScriptId, createBoardItem, router]);
+  }, [savedBoard, subject, savedScriptId, createBoardItem, router, toast]);
 
   return (
     <motion.div
@@ -903,6 +952,97 @@ function ScriptsPageContent() {
                 number={1} 
                 title="TON SUJET & VISION"
               >
+                {boardIdeas.length > 0 && !sourceVideoId && (
+                  <div className="mb-4">
+                    <p className="text-[11px] font-body font-medium text-brutify-text-muted uppercase tracking-wider mb-2.5">
+                      Tes idées du board
+                    </p>
+                    <TemplatePicker<BoardItem>
+                      items={boardIdeas}
+                      selectedId={boardItemId}
+                      onSelect={(id) => {
+                        if (boardItemId === id) {
+                          setBoardItemId(null);
+                          return;
+                        }
+                        const idea = boardIdeas.find((i) => i.id === id);
+                        if (idea) {
+                          setSelectedVeilleTopicId(null);
+                          setSubject(idea.title ?? "");
+                          setBoardItemId(idea.id);
+                        }
+                      }}
+                      renderItem={(idea, isSelected) => (
+                        <>
+                          <p className={cn(
+                            "text-[13px] font-body font-semibold text-brutify-text-primary leading-snug",
+                            isSelected ? "" : "line-clamp-2 min-h-[36px]"
+                          )}>
+                            {idea.title}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                            {idea.platform && (
+                              <Badge variant="gold" className="text-[8px] px-1.5 py-0">
+                                {idea.platform === "instagram" ? "IG" : idea.platform === "tiktok" ? "TT" : idea.platform === "youtube" ? "YT" : idea.platform}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className={cn(
+                            "text-[10px] font-body text-brutify-text-muted/50 mt-1.5 italic leading-relaxed",
+                            isSelected ? "" : "line-clamp-2"
+                          )}>
+                            {idea.notes || idea.title || "Idée du board"}
+                          </p>
+                        </>
+                      )}
+                    />
+                  </div>
+                )}
+                {veilleTopics.length > 0 && !sourceVideoId && (
+                  <div className="mb-4">
+                    <p className="text-[11px] font-body font-medium text-brutify-text-muted uppercase tracking-wider mb-2.5">
+                      Sujets tirés de ta veille
+                    </p>
+                    <TemplatePicker<{ id: string; name: string; category: string; example: string; avg_outlier_score: number }>
+                      items={veilleTopics}
+                      selectedId={selectedVeilleTopicId}
+                      onSelect={(id) => {
+                        if (selectedVeilleTopicId === id) {
+                          setSelectedVeilleTopicId(null);
+                          return;
+                        }
+                        const topic = veilleTopics.find((t) => t.id === id);
+                        if (topic) {
+                          setBoardItemId(null);
+                          const desc = topic.example ? `${topic.name}\n\n${topic.example}` : topic.name;
+                          setSubject(desc);
+                          setSelectedVeilleTopicId(topic.id);
+                        }
+                      }}
+                      renderItem={(topic, isSelected) => (
+                        <>
+                          <p className={cn(
+                            "text-[13px] font-body font-semibold text-brutify-text-primary leading-snug",
+                            isSelected ? "" : "line-clamp-2 min-h-[36px]"
+                          )}>
+                            {topic.name}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                            <Badge variant="gold" className="text-[8px] px-1.5 py-0">
+                              {topic.category === "outlier" ? "Outlier" : topic.category === "pillar" ? "Pilier" : topic.category}
+                            </Badge>
+                          </div>
+                          <p className={cn(
+                            "text-[10px] font-body text-brutify-text-muted/50 mt-1.5 italic leading-relaxed",
+                            isSelected ? "" : "line-clamp-2"
+                          )}>
+                            {topic.example || topic.name}
+                          </p>
+                        </>
+                      )}
+                    />
+                  </div>
+                )}
                 {sourceAnalysisReady && sourceAnalysisHints && (
                   <VideoContextTip
                     hints={sourceAnalysisHints}
