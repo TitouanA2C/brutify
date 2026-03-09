@@ -549,7 +549,7 @@ function HeroVSL() {
         {/* Video container with premium border */}
         <div className="relative rounded-2xl overflow-hidden border border-brutify-gold/20 shadow-[0_0_40px_rgba(255,171,0,0.15),0_20px_80px_rgba(0,0,0,0.6)]">
           <VideoPlayer 
-            src="/videos/demo.mp4"
+            src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
             className="aspect-video w-full"
             vslMode={true}
           />

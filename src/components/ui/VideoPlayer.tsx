@@ -47,11 +47,14 @@ export function VideoPlayer({
   const [isMuted, setIsMuted] = useState(muted);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [hovering, setHovering] = useState(false);
   const [seeking, setSeeking] = useState(false);
 
   const hideControlsTimeout = useRef<NodeJS.Timeout>();
+  const loadTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Format time helper
   const formatTime = (seconds: number): string => {
@@ -156,6 +159,12 @@ export function VideoPlayer({
     videoRef.current.currentTime = realPercent * duration;
   };
 
+  // Reset loading/error when src changes
+  useEffect(() => {
+    setLoading(true);
+    setLoadError(null);
+  }, [src]);
+
   // Video event handlers
   useEffect(() => {
     const video = videoRef.current;
@@ -164,6 +173,11 @@ export function VideoPlayer({
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
       setLoading(false);
+      setLoadError(null);
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = undefined;
+      }
     };
 
     const handleTimeUpdate = () => {
@@ -177,13 +191,39 @@ export function VideoPlayer({
     };
 
     const handleWaiting = () => setLoading(true);
-    const handleCanPlay = () => setLoading(false);
+    const handleCanPlay = () => {
+      setLoading(false);
+      setLoadError(null);
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = undefined;
+      }
+    };
+
+    const handleError = () => {
+      setLoading(false);
+      setLoadError("La vidéo n'a pas pu être chargée.");
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = undefined;
+      }
+    };
 
     video.addEventListener("loadedmetadata", handleLoadedMetadata);
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("ended", handleEnded);
     video.addEventListener("waiting", handleWaiting);
     video.addEventListener("canplay", handleCanPlay);
+    video.addEventListener("error", handleError);
+
+    // Timeout : après 12s, arrêter le chargement infini (fichier manquant, réseau, etc.)
+    loadTimeoutRef.current = setTimeout(() => {
+      loadTimeoutRef.current = undefined;
+      setLoading((prev) => {
+        if (prev) setLoadError("La vidéo met trop de temps à charger.");
+        return false;
+      });
+    }, 12000);
 
     return () => {
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
@@ -191,8 +231,13 @@ export function VideoPlayer({
       video.removeEventListener("ended", handleEnded);
       video.removeEventListener("waiting", handleWaiting);
       video.removeEventListener("canplay", handleCanPlay);
+      video.removeEventListener("error", handleError);
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = undefined;
+      }
     };
-  }, [onEnded, onTimeUpdate]);
+  }, [src, loadAttempt, onEnded, onTimeUpdate]);
 
   // Fullscreen change detection
   useEffect(() => {
@@ -275,22 +320,25 @@ export function VideoPlayer({
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/40 via-transparent to-black/20" />
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-black/20 via-transparent to-black/20" />
 
-      {/* Loading spinner — Premium style */}
+      {/* Loading spinner ou message d'erreur */}
       <AnimatePresence>
-        {loading && (
+        {(loading || loadError) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md pointer-events-none z-30"
+            className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md z-30"
           >
             <div className="relative">
-              {/* Pulsing glow */}
               <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.3, 0.6, 0.3],
-                }}
+                animate={
+                  loadError
+                    ? {}
+                    : {
+                        scale: [1, 1.2, 1],
+                        opacity: [0.3, 0.6, 0.3],
+                      }
+                }
                 transition={{
                   duration: 2,
                   repeat: Infinity,
@@ -298,10 +346,28 @@ export function VideoPlayer({
                 }}
                 className="absolute -inset-8 rounded-full bg-brutify-gold/30 blur-2xl"
               />
-              
-              {/* Card */}
-              <div className="relative flex items-center gap-3 rounded-2xl border border-brutify-gold/30 bg-gradient-to-br from-[#1a1400]/95 to-[#0d0a00]/95 backdrop-blur-xl px-6 py-4 shadow-[0_0_40px_rgba(255,171,0,0.3),0_12px_32px_rgba(0,0,0,0.8)]">
-                <Loading variant="block" size="md" label="Chargement..." />
+              <div className="relative flex flex-col items-center gap-3 rounded-2xl border border-brutify-gold/30 bg-gradient-to-br from-[#1a1400]/95 to-[#0d0a00]/95 backdrop-blur-xl px-6 py-4 shadow-[0_0_40px_rgba(255,171,0,0.3),0_12px_32px_rgba(0,0,0,0.8)]">
+                {loadError ? (
+                  <>
+                    <p className="text-sm font-body text-brutify-text-muted text-center max-w-[200px]">
+                      {loadError}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoadError(null);
+                        setLoading(true);
+                        setLoadAttempt((c) => c + 1);
+                        videoRef.current?.load();
+                      }}
+                      className="text-xs font-body font-medium text-brutify-gold hover:text-brutify-gold-light transition-colors"
+                    >
+                      Réessayer
+                    </button>
+                  </>
+                ) : (
+                  <Loading variant="block" size="md" label="Chargement..." />
+                )}
               </div>
             </div>
           </motion.div>
