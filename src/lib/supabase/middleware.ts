@@ -31,9 +31,24 @@ export async function updateSession(request: NextRequest) {
   // un timeout ou échec renvoyait user=null → redirection vers /login.
   const {
     data: { session },
+    error: sessionError,
   } = await supabase.auth.getSession()
 
+  if (sessionError) {
+    console.error('[middleware] getSession error:', sessionError.message)
+  }
+
   const user = session?.user ?? null
+
+  if (!user) {
+    const cookieNames = request.cookies.getAll().map((c) => c.name)
+    const hasAuthCookie = cookieNames.some((n) => n.startsWith('sb-') && n.includes('-auth-token'))
+    if (hasAuthCookie) {
+      console.warn('[middleware] auth cookies present but session is null', {
+        cookies: cookieNames.filter((n) => n.startsWith('sb-')),
+      })
+    }
+  }
 
   return { supabaseResponse, user, supabase }
 }
