@@ -3,6 +3,16 @@ import { updateSession } from '@/lib/supabase/middleware'
 
 const PUBLIC_ROUTES = ['/', '/login', '/signup', '/callback']
 
+function forwardCookies(
+  from: NextResponse,
+  to: NextResponse
+): NextResponse {
+  from.cookies.getAll().forEach((cookie) => {
+    to.cookies.set(cookie.name, cookie.value)
+  })
+  return to
+}
+
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user, supabase } = await updateSession(request)
   const { pathname } = request.nextUrl
@@ -18,13 +28,13 @@ export async function middleware(request: NextRequest) {
   if (isAuthRoute && user) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    return forwardCookies(supabaseResponse, NextResponse.redirect(url))
   }
 
   if (isAppRoute && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return NextResponse.redirect(url)
+    return forwardCookies(supabaseResponse, NextResponse.redirect(url))
   }
 
   if (user && isAppRoute && pathname !== '/onboarding') {
@@ -37,7 +47,7 @@ export async function middleware(request: NextRequest) {
     if (profile && profile.onboarding_completed === false) {
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding'
-      return NextResponse.redirect(url)
+      return forwardCookies(supabaseResponse, NextResponse.redirect(url))
     }
   }
 

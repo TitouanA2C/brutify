@@ -25,9 +25,15 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // getSession() lit les cookies localement et gère le refresh du token
+  // sans faire d'appel HTTP vers le serveur Supabase Auth.
+  // getUser() faisait un appel réseau à chaque navigation : sur Vercel Edge,
+  // un timeout ou échec renvoyait user=null → redirection vers /login.
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  const user = session?.user ?? null
 
   return { supabaseResponse, user, supabase }
 }
