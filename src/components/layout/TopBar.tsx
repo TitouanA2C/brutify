@@ -301,14 +301,14 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                 <div className="h-px bg-white/[0.06] mx-3" />
 
                 <div className="py-1.5">
-                  <Link
+                  <a
                     href="/api/auth/logout"
                     onClick={() => setUserOpen(false)}
                     className="flex items-center gap-3 w-full px-4 py-2 text-[13px] font-body font-medium text-brutify-danger/80 hover:text-brutify-danger hover:bg-brutify-danger/[0.04] transition-all duration-150 cursor-pointer"
                   >
                     <LogOut className="h-3.5 w-3.5" />
                     Se déconnecter
-                  </Link>
+                  </a>
                 </div>
               </motion.div>
             )}

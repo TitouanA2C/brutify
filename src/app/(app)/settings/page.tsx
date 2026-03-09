@@ -931,12 +931,12 @@ function SettingsPageContent() {
                 <p className="text-sm font-body font-medium text-brutify-text-primary">Se déconnecter de son compte</p>
                 <p className="text-[11px] font-body text-brutify-text-muted mt-0.5">Tu pourras te reconnecter à tout moment avec le même compte</p>
               </div>
-              <Link
+              <a
                 href="/api/auth/logout"
                 className="rounded-xl border border-white/[0.1] bg-white/[0.03] px-4 py-2 text-sm font-body font-semibold text-brutify-text-secondary hover:text-brutify-danger hover:bg-brutify-danger/[0.06] hover:border-brutify-danger/20 transition-all cursor-pointer inline-block"
               >
                 Se déconnecter
-              </Link>
+              </a>
             </div>
           </div>
         </div>

@@ -485,15 +485,14 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           <Settings className="h-3.5 w-3.5 text-brutify-text-muted/40 group-hover:text-brutify-text-muted group-hover:rotate-45 transition-all duration-300" />
         </Link>
 
-        {/* Se déconnecter — API serveur efface les cookies puis redirige */}
-        <Link
+        <a
           href="/api/auth/logout"
           onClick={onMobileClose}
           className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-body font-medium text-brutify-text-muted hover:text-brutify-danger hover:bg-brutify-danger/[0.06] transition-colors duration-150 cursor-pointer"
         >
           <LogOut className="h-3.5 w-3.5 shrink-0" />
           Se déconnecter
-        </Link>
+        </a>
       </div>
     </aside>
   );
