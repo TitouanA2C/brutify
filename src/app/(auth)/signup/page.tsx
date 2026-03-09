@@ -54,9 +54,12 @@ export default function SignupPage() {
     setError(null)
     setGoogleLoading(true)
 
+    // En prod, toujours utiliser l’URL réelle du site (évite redirect vers localhost si NEXT_PUBLIC_APP_URL était localhost au build)
+    const origin = typeof window !== "undefined" ? window.location.origin : ""
     const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (typeof window !== "undefined" ? window.location.origin : "")
+      origin && !origin.includes("localhost")
+        ? origin
+        : process.env.NEXT_PUBLIC_APP_URL || origin
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
