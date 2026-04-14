@@ -127,7 +127,7 @@ export const UPSELL_TRIGGERS: Record<UpsellTriggerType, UpsellTrigger> = {
   power_user_detected: {
     type: "power_user_detected",
     title: "⚡ Power user détecté !",
-    description: "20+ actions aujourd'hui ! Scale débloque multi-users + 6000 BP/mois. -25% sur le 1er mois.",
+    description: "20+ actions aujourd'hui ! Scale débloque multi-users + 3000 BP/mois. -25% sur le 1er mois.",
     eligiblePlans: ["growth"],
     targetPlan: "scale",
     offer: "growth_to_scale_bonus",

@@ -125,10 +125,10 @@ const OFFER_CONFIGS: Record<UpsellOfferType, OfferDetails> = {
     badge: "POWER USER",
     badgeColor: "from-green-500 to-emerald-600",
     headline: "+1000 BP OFFERTS · Scale",
-    subheadline: "7000 BP le 1er mois · Multi-users · Export · Support prioritaire",
+    subheadline: "4000 BP le 1er mois · Multi-users · Export · Support prioritaire",
     discount: "+1000 BP",
     features: [
-      "6 000 BrutPoints par mois",
+      "3 000 BrutPoints par mois",
       "+ 1 000 BP bonus (1er mois)",
       "Tout Growth inclus",
       "Multi-utilisateurs (3 seats)",

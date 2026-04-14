@@ -90,6 +90,9 @@ export async function POST(request: Request) {
     } else if (bonus.id === "add_to_board") {
       const { count } = await serviceSupabase.from("board_items").select("id", { count: "exact", head: true }).eq("user_id", user.id)
       if ((count ?? 0) < 1) return NextResponse.json({ error: "Il faut ajouter au moins 1 élément au board" }, { status: 403 })
+    } else if (bonus.id === "leave_review") {
+      const { data: p } = await serviceSupabase.from("profiles").select("*").eq("id", user.id).single()
+      if (!(p as Record<string, unknown>)?.review_submitted) return NextResponse.json({ error: "Il faut laisser un avis pour debloquer ce bonus" }, { status: 403 })
     }
 
     // Débloquer le bonus

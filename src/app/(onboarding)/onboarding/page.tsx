@@ -1019,7 +1019,7 @@ function StepPlanSelection({ selectedPlan, onSelect, onNext, onBack, finishing, 
       key: "scale" as const,
       name: "Scale",
       tagline: "Pour les équipes & agences",
-      bp: "6 000 BP / mois",
+      bp: "3 000 BP / mois",
       price: "79€/mois",
       features: ["Tout Growth inclus", "Multi-users (3 seats)", "Export", "Support prioritaire"],
       badge: null,
@@ -1138,7 +1138,7 @@ function StepReady({ niche, audienceRange, formats, frequency, creatorsCount, in
     free: "Free (50 BP)",
     creator: "Creator · 7j gratuits (500 BP)",
     growth: "Growth · -40% 1er mois (2000 BP)",
-    scale: "Scale (6000 BP)",
+    scale: "Scale (3000 BP)",
   }
   const audienceLabel = audienceRange ? AUDIENCE_RANGES.find((a) => a.id === audienceRange)?.label ?? audienceRange : null
   const formatsLabel = formats.size > 0

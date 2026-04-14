@@ -122,7 +122,7 @@ export default function Dashboard() {
     if (!profile) return;
     
     const planName = profile.plan;
-    const trialEndsAt = profile.trial_ends_at;
+    const trialEndsAt = (profile as Record<string, unknown>).trial_ends_at as string | null;
     
     if (planName === "creator" && trialEndsAt) {
       const trialEnd = new Date(trialEndsAt).getTime();
@@ -150,29 +150,22 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      label: "Créateurs suivis",
+      label: "Createurs suivis",
       value: String(stats?.totalCreators ?? 0),
       icon: Users,
       color: "#FFAB00",
     },
     {
-      label: "Outliers détectés",
+      label: "Top perfs detectees",
       value: (stats?.totalOutliers ?? 0).toLocaleString("fr-FR"),
       icon: TrendingUp,
       color: "#FFD700",
     },
     {
-      label: "Scripts forgés",
+      label: "Scripts forges",
       value: String(stats?.totalScripts ?? 0),
       icon: PenTool,
       color: "#CC8800",
-    },
-    {
-      label: "Top ratio",
-      value: stats?.topRatio ?? "—",
-      sub: stats?.topHandle ? `@${stats.topHandle}` : undefined,
-      icon: Zap,
-      color: "#FFAB00",
     },
   ];
 
@@ -219,8 +212,123 @@ export default function Dashboard() {
       {/* Activation bonus tracker (visible uniquement pendant l'essai) */}
       <ActivationBonusTracker />
 
+      {/* Vos reseaux sociaux — section principale */}
+      {networks.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.4, ease: EASE_EXPO }}
+          className="mb-8"
+        >
+          <Card
+            hoverable={false}
+            className="p-6 border-brutify-gold/20 bg-gradient-to-br from-[#111113]/80 to-[#111113]/40 shadow-[0_0_30px_rgba(255,171,0,0.15)]"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-brutify-border-gold bg-brutify-gold/[0.08] icon-hover-rotate"
+              >
+                <Activity className="h-[18px] w-[18px] text-brutify-gold" />
+              </div>
+              <div>
+                <h2 className="font-display text-2xl tracking-wider text-brutify-text-primary">
+                  VOS RESEAUX
+                </h2>
+                <p className="text-[11px] font-body text-brutify-text-muted">
+                  Performances de vos comptes connectes
+                </p>
+              </div>
+            </div>
+
+            {isLoading ? (
+              <Loading variant="block" size="md" className="py-8" />
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {networks.map((network, i) => (
+                  <motion.div
+                    key={network.platform}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + i * 0.1, duration: 0.3, ease: EASE_EXPO }}
+                    className="rounded-xl border border-brutify-gold/15 bg-gradient-to-br from-[#0c0c14] to-[#0a0a10] p-4 shadow-[0_0_20px_rgba(0,0,0,0.3)] hover:border-brutify-gold/25 hover:shadow-[0_0_24px_rgba(255,171,0,0.08)] transition-all duration-300 flex flex-col"
+                  >
+                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-brutify-gold/10">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-brutify-border-gold bg-brutify-gold/[0.08] text-brutify-gold">
+                        {platformIcons[network.platform] ?? <Activity className="h-4 w-4" />}
+                      </div>
+                      <span className="text-sm font-body font-semibold text-brutify-text-primary truncate">
+                        @{network.handle}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 mb-4">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider">
+                          Abonnes
+                        </span>
+                        <span className="font-display text-lg tracking-wider text-brutify-text-primary">
+                          {formatNumber(network.followers)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider">
+                          Vues moy.
+                        </span>
+                        <span className="font-display text-base tracking-wider text-brutify-gold">
+                          {formatNumber(network.avg_views)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider">
+                          Engagement
+                        </span>
+                        <span className="font-body text-sm font-semibold text-brutify-success">
+                          {network.engagement_rate.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider">
+                          Videos
+                        </span>
+                        <span className="font-body text-sm font-medium text-brutify-text-primary">
+                          {network.scraped_videos}
+                        </span>
+                      </div>
+                    </div>
+
+                    {network.growth_rate > 0 && (
+                      <div className="flex items-center gap-1.5 pt-2 border-t border-white/[0.04]">
+                        <TrendingUp className="h-3 w-3 text-brutify-success shrink-0" />
+                        <span className="text-[11px] font-body text-brutify-success">
+                          +{network.growth_rate.toFixed(1)}% croissance
+                        </span>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {networks.length === 0 && !isLoading && (
+              <div className="flex flex-col items-center justify-center py-8 gap-3">
+                <Activity className="h-8 w-8 text-brutify-text-muted/20" />
+                <p className="text-sm font-body text-brutify-text-muted text-center">
+                  Aucun reseau connecte.
+                </p>
+                <Link
+                  href="/settings"
+                  className="text-xs font-body font-medium text-brutify-gold hover:text-brutify-gold-light transition-colors"
+                >
+                  Connecter vos reseaux →
+                </Link>
+              </div>
+            )}
+          </Card>
+        </motion.div>
+      )}
+
       {/* Stats cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {statCards.map((stat, i) => {
           const Icon = stat.icon;
           return (
@@ -250,175 +358,15 @@ export default function Dashboard() {
                 <p className="mt-1 text-xs font-body text-brutify-text-secondary">
                   {stat.label}
                 </p>
-                {stat.sub && (
-                  <p className="mt-0.5 text-[10px] font-body text-brutify-gold/70">
-                    {stat.sub}
-                  </p>
-                )}
               </div>
             </motion.div>
           );
         })}
       </div>
 
-      {/* Vos réseaux sociaux - Style Jarvis */}
-      {networks.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.4, ease: EASE_EXPO }}
-          className="mb-8"
-        >
-          <Card
-            hoverable={false}
-            className="p-6 border-brutify-gold/20 bg-gradient-to-br from-[#111113]/80 to-[#111113]/40 shadow-[0_0_30px_rgba(255,171,0,0.15)]"
-          >
-            <div className="flex items-center gap-3 mb-5">
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-brutify-border-gold bg-brutify-gold/[0.08] icon-hover-rotate"
-              >
-                <Activity className="h-[18px] w-[18px] text-brutify-gold" />
-              </div>
-              <div>
-                <h2 className="font-display text-2xl tracking-wider text-brutify-text-primary">
-                  VOS RÉSEAUX
-                </h2>
-                <p className="text-[11px] font-body text-brutify-text-muted">
-                  Performances de vos comptes connectés
-                </p>
-              </div>
-            </div>
-
-            {isLoading ? (
-              <Loading variant="block" size="md" className="py-8" />
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {networks.map((network, i) => (
-                  <motion.div
-                    key={network.platform}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 + i * 0.1, duration: 0.3, ease: EASE_EXPO }}
-                    className="rounded-xl border border-brutify-gold/15 bg-gradient-to-br from-[#0c0c14] to-[#0a0a10] p-4 shadow-[0_0_20px_rgba(0,0,0,0.3)] hover:border-brutify-gold/25 hover:shadow-[0_0_24px_rgba(255,171,0,0.08)] transition-all duration-300 flex flex-col"
-                  >
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-brutify-gold/10">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-brutify-border-gold bg-brutify-gold/[0.08] text-brutify-gold">
-                        {platformIcons[network.platform] ?? <Activity className="h-4 w-4" />}
-                      </div>
-                      <span className="text-sm font-body font-semibold text-brutify-text-primary truncate">
-                        @{network.handle}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 mb-4">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider">
-                          Abonnés
-                        </span>
-                        <span className="font-display text-lg tracking-wider text-brutify-text-primary">
-                          {formatNumber(network.followers)}
-                        </span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider">
-                          Vues moy.
-                        </span>
-                        <span className="font-display text-base tracking-wider text-brutify-gold">
-                          {formatNumber(network.avg_views)}
-                        </span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider">
-                          Impressions
-                        </span>
-                        <span className="font-display text-base tracking-wider text-brutify-text-primary">
-                          {formatNumber(network.total_impressions ?? network.total_views)}
-                        </span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider">
-                          Vidéos
-                        </span>
-                        <span className="font-body text-sm font-medium text-brutify-text-primary">
-                          {network.scraped_videos}
-                        </span>
-                      </div>
-                      <div className="flex flex-col col-span-2">
-                        <span className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider">
-                          Engagement
-                        </span>
-                        <span className="font-body text-sm font-semibold text-brutify-success">
-                          {network.engagement_rate.toFixed(1)}%
-                        </span>
-                      </div>
-                      {network.growth_rate > 0 && (
-                        <div className="flex items-center gap-1.5 col-span-2 pt-1 border-t border-white/[0.04]">
-                          <TrendingUp className="h-3 w-3 text-brutify-success shrink-0" />
-                          <span className="text-[11px] font-body text-brutify-success">
-                            +{network.growth_rate.toFixed(1)}% croissance
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {network.last_outliers?.length > 0 && (
-                      <div className="mt-auto pt-3 border-t border-white/[0.06]">
-                        <p className="text-[10px] font-body text-brutify-text-muted uppercase tracking-wider mb-2">
-                          Derniers outliers
-                        </p>
-                        <ul className="space-y-1.5">
-                          {network.last_outliers.slice(0, 3).map((o: NetworkOutlierPreview) => (
-                              <li key={o.id} className="flex items-center gap-2 text-[11px]">
-                                {o.thumbnail_url ? (
-                                  <img
-                                    src={proxyImg(o.thumbnail_url) ?? ""}
-                                    alt=""
-                                    className="h-8 w-14 rounded object-cover shrink-0"
-                                  />
-                                ) : (
-                                  <div className="h-8 w-14 rounded bg-white/5 shrink-0 flex items-center justify-center">
-                                    <Play className="h-3 w-3 text-brutify-text-muted" />
-                                  </div>
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <span className="font-body text-brutify-text-primary truncate block">
-                                    {o.title || "Sans titre"}
-                                  </span>
-                                  <span className="text-brutify-text-muted">
-                                    {formatNumber(o.views)} vues · {o.outlier_score.toFixed(1)}x
-                                  </span>
-                                </div>
-                              </li>
-                            ))}
-                        </ul>
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {networks.length === 0 && !isLoading && (
-              <div className="flex flex-col items-center justify-center py-8 gap-3">
-                <Activity className="h-8 w-8 text-brutify-text-muted/20" />
-                <p className="text-sm font-body text-brutify-text-muted text-center">
-                  Aucun réseau connecté.
-                </p>
-                <Link
-                  href="/settings"
-                  className="text-xs font-body font-medium text-brutify-gold hover:text-brutify-gold-light transition-colors"
-                >
-                  Connecter vos réseaux →
-                </Link>
-              </div>
-            )}
-          </Card>
-        </motion.div>
-      )}
-
-      {/* 2-column layout: Top Outliers + Créateurs en feu */}
+      {/* 2-column layout: Top Virales + Createurs en feu */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-        {/* Top Outliers récents */}
+        {/* Top Virales recentes */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -434,7 +382,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h2 className="font-display text-xl tracking-wider text-brutify-text-primary">
-                    TOP OUTLIERS
+                    TOP VIRALES
                   </h2>
                   <p className="text-[10px] font-body text-brutify-text-muted">
                     Vidéos qui explosent
@@ -516,7 +464,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <p className="text-sm font-body text-brutify-text-muted text-center py-6">
-                Aucun outlier détecté. Ajoute des créateurs à ta watchlist.
+                Aucune top perf detectee. Ajoute des createurs a ta watchlist.
               </p>
             )}
           </Card>
@@ -633,167 +581,95 @@ export default function Dashboard() {
         </motion.div>
       </div>
 
-      {/* 2-column layout: BrutBoard + Activité récente */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-        {/* BrutBoard */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7, duration: 0.4, ease: EASE_EXPO }}
-        >
-          <Card hoverable={false} className="p-6 border-brutify-gold/15 shadow-[0_0_20px_rgba(255,171,0,0.1)] h-full">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-brutify-border-gold bg-brutify-gold/[0.08] icon-hover-rotate"
-                >
-                  <LayoutDashboard className="h-[18px] w-[18px] text-brutify-gold" />
-                </div>
-                <div>
-                  <h2 className="font-display text-xl tracking-wider text-brutify-text-primary">
-                    BRUTBOARD
-                  </h2>
-                  <p className="text-[10px] font-body text-brutify-text-muted">
-                    Contenus planifiés
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/board"
-                className="flex items-center gap-1.5 text-xs font-body font-medium text-brutify-text-secondary hover:text-brutify-gold transition-colors duration-200"
-              >
-                Voir tout
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
-
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loading variant="block" size="md" className="py-8" />
-              </div>
-            ) : upcomingBoard.length > 0 ? (
-              <div className="space-y-2.5">
-                {upcomingBoard.map((item, index) => {
-                  const statusCfg =
-                    boardStatusConfig[item.status as BoardStatus] ??
-                    boardStatusConfig.idea;
-                  return (
-                    <motion.div
-                      key={item.id}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{
-                        delay: 0.75 + index * 0.08,
-                        duration: 0.2,
-                        ease: EASE_EXPO,
-                      }}
-                      className="flex items-center justify-between flex-wrap gap-2 rounded-lg border border-white/[0.06] bg-brutify-elevated/20 px-4 py-3 transition-all duration-200 hover:border-white/[0.1] hover:bg-brutify-elevated/40"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <Circle
-                          className="h-2.5 w-2.5 shrink-0 fill-current"
-                          style={{ color: statusCfg.color }}
-                        />
-                        <p className="truncate text-sm font-body font-medium text-brutify-text-primary">
-                          {item.title}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 ml-4 shrink-0">
-                        <span className="text-[11px] font-body text-brutify-text-muted flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {item.date}
-                        </span>
-                        <span
-                          className="text-[11px] font-body font-medium rounded-full px-2 py-0.5 border"
-                          style={{
-                            color: statusCfg.color,
-                            borderColor: statusCfg.color + "30",
-                            backgroundColor: statusCfg.color + "10",
-                          }}
-                        >
-                          {statusCfg.label}
-                        </span>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm font-body text-brutify-text-muted text-center py-6">
-                Aucun contenu planifié. Ajoute du contenu dans ton BrutBoard.
-              </p>
-            )}
-          </Card>
-        </motion.div>
-
-        {/* Activité récente */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.7, duration: 0.4, ease: EASE_EXPO }}
-        >
-          <Card hoverable={false} className="p-6 h-full">
-            <div className="flex items-center gap-3 mb-5">
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-brutify-border-gold bg-brutify-gold/[0.08] icon-hover-rotate"
-              >
-                <Clock className="h-[18px] w-[18px] text-brutify-gold" />
+      {/* BrutBoard — full width */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7, duration: 0.4, ease: EASE_EXPO }}
+        className="mb-8"
+      >
+        <Card hoverable={false} className="p-6 border-brutify-gold/15 shadow-[0_0_20px_rgba(255,171,0,0.1)]">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-brutify-border-gold bg-brutify-gold/[0.08] icon-hover-rotate">
+                <LayoutDashboard className="h-[18px] w-[18px] text-brutify-gold" />
               </div>
               <div>
                 <h2 className="font-display text-xl tracking-wider text-brutify-text-primary">
-                  ACTIVITÉ RÉCENTE
+                  BRUTBOARD
                 </h2>
                 <p className="text-[10px] font-body text-brutify-text-muted">
-                  Vos dernières actions
+                  Contenus planifies
                 </p>
               </div>
             </div>
+            <Link
+              href="/board"
+              className="flex items-center gap-1.5 text-xs font-body font-medium text-brutify-text-secondary hover:text-brutify-gold transition-colors duration-200"
+            >
+              Voir tout
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
 
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loading variant="block" size="md" className="py-8" />
-              </div>
-            ) : recentActivity.length > 0 ? (
-              <div className="space-y-2">
-                {recentActivity.map((activity, index) => (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loading variant="block" size="md" className="py-8" />
+            </div>
+          ) : upcomingBoard.length > 0 ? (
+            <div className="space-y-2.5">
+              {upcomingBoard.map((item, index) => {
+                const statusCfg =
+                  boardStatusConfig[item.status as BoardStatus] ??
+                  boardStatusConfig.idea;
+                return (
                   <motion.div
-                    key={activity.id}
-                    initial={{ opacity: 0, x: 12 }}
+                    key={item.id}
+                    initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{
-                      delay: 0.75 + index * 0.06,
+                      delay: 0.75 + index * 0.08,
                       duration: 0.2,
                       ease: EASE_EXPO,
                     }}
-                    className="flex items-start gap-3 rounded-lg border border-white/[0.05] bg-brutify-elevated/15 px-3.5 py-2.5 transition-all duration-200 hover:border-white/[0.08] hover:bg-brutify-elevated/30"
+                    className="flex items-center justify-between flex-wrap gap-2 rounded-lg border border-white/[0.06] bg-brutify-elevated/20 px-4 py-3 transition-all duration-200 hover:border-white/[0.1] hover:bg-brutify-elevated/40"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brutify-gold/[0.08] text-brutify-gold mt-0.5">
-                      {activityIcons[activity.type] ?? <Sparkles className="h-3.5 w-3.5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-body font-medium text-brutify-text-primary">
-                        {activity.title}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <Circle
+                        className="h-2.5 w-2.5 shrink-0 fill-current"
+                        style={{ color: statusCfg.color }}
+                      />
+                      <p className="truncate text-sm font-body font-medium text-brutify-text-primary">
+                        {item.title}
                       </p>
-                      {activity.subtitle && (
-                        <p className="text-[10px] font-body text-brutify-text-muted mt-0.5 truncate">
-                          {activity.subtitle}
-                        </p>
-                      )}
                     </div>
-                    <span className="text-[10px] font-body text-brutify-text-muted/60 shrink-0 mt-1">
-                      {formatRelTime(activity.timestamp)}
-                    </span>
+                    <div className="flex items-center gap-3 ml-4 shrink-0">
+                      <span className="text-[11px] font-body text-brutify-text-muted flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {item.date}
+                      </span>
+                      <span
+                        className="text-[11px] font-body font-medium rounded-full px-2 py-0.5 border"
+                        style={{
+                          color: statusCfg.color,
+                          borderColor: statusCfg.color + "30",
+                          backgroundColor: statusCfg.color + "10",
+                        }}
+                      >
+                        {statusCfg.label}
+                      </span>
+                    </div>
                   </motion.div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm font-body text-brutify-text-muted text-center py-6">
-                Aucune activité récente.
-              </p>
-            )}
-          </Card>
-        </motion.div>
-      </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm font-body text-brutify-text-muted text-center py-6">
+              Aucun contenu planifie. Ajoute du contenu dans ton BrutBoard.
+            </p>
+          )}
+        </Card>
+      </motion.div>
 
       {/* Quick actions footer */}
       <motion.div

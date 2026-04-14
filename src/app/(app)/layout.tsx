@@ -8,6 +8,7 @@ import { CreditsProvider } from "@/lib/credits-context";
 
 import { CreditsToastWrapper } from "@/components/notifications/CreditsToastWrapper";
 import { UpsellProvider } from "@/components/upsell/UpsellProvider";
+import { AutoUpsellChecker } from "@/components/upsell/AutoUpsellChecker";
 
 function SidebarFallback() {
   return (
@@ -54,7 +55,9 @@ export default function AppLayout({
             {children}
           </main>
         </div>
-        {/* Toast notifications pour alertes critiques en temps réel */}
+        {/* Checks upsell automatiques (credits_50%, power_user) */}
+        <AutoUpsellChecker />
+        {/* Toast notifications pour alertes critiques en temps reel */}
         <CreditsToastWrapper />
       </UpsellProvider>
     </CreditsProvider>

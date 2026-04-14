@@ -37,6 +37,7 @@ import { UpgradeModal } from "@/components/ui/UpgradeModal";
 import { CreditToast } from "@/components/ui/CreditToast";
 import { Loading } from "@/components/ui/Loading";
 import { cn } from "@/lib/utils";
+import { useUpsell } from "@/hooks/useUpsellTrigger";
 
 const EASE_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -102,6 +103,7 @@ export function VideoDetailModal({ video, creator: creatorProp, onClose }: Video
   const [lastErrorAction, setLastErrorAction] = useState<"transcript" | "analysis" | null>(null);
   const [pendingAction, setPendingAction] = useState<"analysis" | null>(null);
   const { credits, addUsage } = useCredits();
+  const { triggerUpsell } = useUpsell();
   const { create: createBoardItem, isCreating: savingBoard } = useCreateBoardItem();
   const [savedInspiration, setSavedInspiration] = useState(false);
   const [savedBoard, setSavedBoard] = useState(false);
@@ -118,7 +120,6 @@ export function VideoDetailModal({ video, creator: creatorProp, onClose }: Video
     setTranscribing(false);
     setAnalyzing(false);
     setPendingAction(null);
-    setSavedVault(false);
     setSavedBoard(false);
     setSavedInspiration(false);
     const handler = (e: KeyboardEvent) => {
@@ -210,6 +211,7 @@ export function VideoDetailModal({ video, creator: creatorProp, onClose }: Video
         
         if (transRes.status === 403 && transData.feature) {
           setUpgradeModal({ feature: transData.feature, requiredPlan: transData.required_plan });
+          triggerUpsell("transcription_limit");
           setTranscribing(false);
           setForgingScript(false);
           return;

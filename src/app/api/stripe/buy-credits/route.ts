@@ -58,20 +58,22 @@ export async function POST(request: Request) {
   else if (userPlan === "growth") discountPercent = 25
   else if (userPlan === "scale") discountPercent = 40
 
-  // Créer un coupon dynamique si l'user a droit à une réduction
+  // Reutiliser un coupon par plan (evite d'en creer des centaines dans Stripe)
   let couponId: string | undefined = undefined
   if (discountPercent > 0) {
-    const coupon = await stripe.coupons.create({
-      percent_off: discountPercent,
-      duration: "once",
-      name: `BP Pack Subscriber Discount (${userPlan})`,
-      metadata: {
-        user_id: user.id,
-        user_plan: userPlan,
-        pack_amount: String(body.amount),
-      },
-    })
-    couponId = coupon.id
+    const stableCouponId = `bp_discount_${userPlan}_${discountPercent}`
+    try {
+      await stripe.coupons.retrieve(stableCouponId)
+      couponId = stableCouponId
+    } catch {
+      const coupon = await stripe.coupons.create({
+        id: stableCouponId,
+        percent_off: discountPercent,
+        duration: "once",
+        name: `BP Pack -${discountPercent}% (${userPlan})`,
+      })
+      couponId = coupon.id
+    }
   }
 
   const session = await stripe.checkout.sessions.create({

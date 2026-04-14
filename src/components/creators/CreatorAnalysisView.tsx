@@ -320,6 +320,7 @@ export function CreatorAnalysisView({
           title="Hooks"
           color="#F59E0B"
           count={analysis.hooks.catalog?.length}
+          defaultOpen={false}
         >
           {/* Top 5 — larger cards */}
           {analysis.hooks.top_5?.length > 0 && (
@@ -398,6 +399,7 @@ export function CreatorAnalysisView({
           icon={<FileText />}
           title="Structures de Script"
           color="#06B6D4"
+          defaultOpen={false}
           count={analysis.script_structures.detected_structures?.length}
         >
           <div className="space-y-3">
@@ -510,6 +512,7 @@ export function CreatorAnalysisView({
           icon={<Funnel />}
           title="Stratégie de Funnel"
           color="#EC4899"
+          defaultOpen={false}
         >
           <div className="space-y-5">
             {/* Large funnel bars */}
@@ -570,6 +573,7 @@ export function CreatorAnalysisView({
           icon={<Lightbulb />}
           title="Sujets & Thématiques"
           color="#F97316"
+          defaultOpen={false}
           count={analysis.topics.content_pillars?.length}
         >
           <div className="space-y-4">
@@ -610,7 +614,7 @@ export function CreatorAnalysisView({
               </div>
             )}
 
-            {/* Outlier topics — fire icon cards */}
+            {/* Top perf topics — fire icon cards */}
             {analysis.topics.outlier_topics?.length > 0 && (
               <div>
                 <p className="text-[11px] font-body font-medium uppercase tracking-wider text-brutify-gold/60 mb-3">
@@ -695,13 +699,13 @@ export function CreatorAnalysisView({
                 icon={<TrendingUp className="h-4 w-4" />}
               />
               <MetricCard
-                label="Outliers (>2x)"
+                label="Top perfs (>2x)"
                 value={String(analysis.metrics.outlier_count ?? 0)}
                 icon={<Zap className="h-4 w-4" />}
                 accent
               />
               <MetricCard
-                label="Mega outliers (>10x)"
+                label="Mega virales (>10x)"
                 value={String(analysis.metrics.mega_outlier_count ?? 0)}
                 icon={<Sparkles className="h-4 w-4" />}
                 accent

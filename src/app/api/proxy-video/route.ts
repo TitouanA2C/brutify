@@ -38,6 +38,7 @@ export async function GET(request: Request) {
     const res = await fetch(decoded, {
       headers,
       redirect: "follow",
+      signal: AbortSignal.timeout(30000),
     })
 
     if (!res.ok) {

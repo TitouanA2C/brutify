@@ -81,11 +81,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Effectuer l'emprunt
+    // Effectuer l'emprunt (optimistic lock sur borrowed_credits pour eviter les race conditions)
     const newCredits = profile.credits + amount
     const newBorrowed = currentBorrowed + amount
 
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from("profiles")
       .update({
         credits: newCredits,
@@ -93,12 +93,22 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)
+      .eq("borrowed_credits", currentBorrowed)
+      .select("id")
 
     if (updateError) {
       console.error("[Borrow] Update error:", updateError)
       return NextResponse.json(
         { error: "Erreur lors de l'emprunt" },
         { status: 500 }
+      )
+    }
+
+    // Si aucune row mise a jour = race condition detectee
+    if (!updated || updated.length === 0) {
+      return NextResponse.json(
+        { error: "Requete concurrente detectee, veuillez reessayer" },
+        { status: 409 }
       )
     }
 

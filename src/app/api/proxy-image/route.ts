@@ -13,17 +13,34 @@ const ALLOWED_DOMAINS = [
   "pravatar.cc",
 ]
 
+// 1x1 transparent PNG placeholder (89 bytes)
+const TRANSPARENT_PIXEL = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAAlwSFlzAAAWJQAAFiUBSVIk8AAAAA0lEQVQI12P4z8BQDwAEgAF/QualzQAAAABJRU5ErkJggg==",
+  "base64"
+)
+
+function placeholderResponse() {
+  return new NextResponse(TRANSPARENT_PIXEL, {
+    headers: {
+      "Content-Type": "image/png",
+      // Short cache so fresh URLs picked up quickly after cron re-scrape
+      "Cache-Control": "public, max-age=300, s-maxage=60",
+      "Access-Control-Allow-Origin": "*",
+    },
+  })
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const url = searchParams.get("url")
 
-  if (!url) return new NextResponse("Missing url", { status: 400 })
+  if (!url) return placeholderResponse()
 
   try {
     const decoded = decodeURIComponent(url)
     const requireHttps = process.env.NODE_ENV === "production"
     if (!isAllowedProxyHostname(decoded, ALLOWED_DOMAINS, requireHttps)) {
-      return new NextResponse("Domaine non autorisé", { status: 403 })
+      return placeholderResponse()
     }
 
     const res = await fetch(decoded, {
@@ -37,12 +54,13 @@ export async function GET(request: Request) {
         "sec-fetch-mode": "no-cors",
         "sec-fetch-site": "cross-site",
       },
-      // Don't follow Instagram redirects to login page
       redirect: "follow",
+      signal: AbortSignal.timeout(8000),
     })
 
+    // Expired/invalid URL — return placeholder instead of error
     if (!res.ok) {
-      return new NextResponse("Image fetch failed", { status: res.status })
+      return placeholderResponse()
     }
 
     const contentType = res.headers.get("content-type") ?? "image/jpeg"
@@ -57,6 +75,7 @@ export async function GET(request: Request) {
       },
     })
   } catch {
-    return new NextResponse("Proxy error", { status: 502 })
+    // Network error / timeout — return placeholder
+    return placeholderResponse()
   }
 }

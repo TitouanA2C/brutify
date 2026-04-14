@@ -57,7 +57,7 @@ const platformOptions: { value: PlatformFilter; label: string }[] = [
 ];
 
 const sortOptions: { value: SortKey; label: string }[] = [
-  { value: "outlier_score", label: "Outlier score" },
+  { value: "outlier_score", label: "Score viral" },
   { value: "views", label: "Vues" },
   { value: "likes", label: "Likes" },
   { value: "comments", label: "Commentaires" },
@@ -176,7 +176,7 @@ function VideosPage() {
     setPage(1);
   }, [period, outlierMin, platformFilter, creatorFilter, sortBy]);
 
-  const sortLabel = sortOptions.find((o) => o.value === sortBy)?.label ?? "Outlier score";
+  const sortLabel = sortOptions.find((o) => o.value === sortBy)?.label ?? "Score viral";
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -201,7 +201,7 @@ function VideosPage() {
 
           <Separator />
 
-          <FilterGroup label="Outlier min">
+          <FilterGroup label="Score viral min">
             {outlierOptions.map((opt) => (
               <Pill key={opt.value} label={opt.label} active={outlierMin === opt.value} onClick={() => setOutlierMin(opt.value)} />
             ))}

@@ -2166,11 +2166,8 @@ function BodySections({
 }) {
   const sections = useMemo(() => parseBodySubSections(body), [body]);
 
-  const handleSubSectionChange = useCallback(
-    (idx: number, newContent: string) => {
-      const updated = sections.map((s, i) =>
-        i === idx ? { ...s, content: newContent } : s
-      );
+  const rebuildBody = useCallback(
+    (updated: { title: string; content: string }[]) => {
       const rebuilt = updated
         .map((s) =>
           s.title === "Développement" || s.title === "Introduction"
@@ -2180,17 +2177,57 @@ function BodySections({
         .join("\n\n");
       onChange(rebuilt);
     },
-    [sections, onChange]
+    [onChange]
+  );
+
+  const handleSubSectionChange = useCallback(
+    (idx: number, newContent: string) => {
+      const updated = sections.map((s, i) =>
+        i === idx ? { ...s, content: newContent } : s
+      );
+      rebuildBody(updated);
+    },
+    [sections, rebuildBody]
+  );
+
+  const handleMoveUp = useCallback(
+    (idx: number) => {
+      if (idx <= 0) return;
+      const updated = [...sections];
+      [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+      rebuildBody(updated);
+    },
+    [sections, rebuildBody]
+  );
+
+  const handleMoveDown = useCallback(
+    (idx: number) => {
+      if (idx >= sections.length - 1) return;
+      const updated = [...sections];
+      [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
+      rebuildBody(updated);
+    },
+    [sections, rebuildBody]
+  );
+
+  const handleDuplicate = useCallback(
+    (idx: number) => {
+      const updated = [...sections];
+      const dup = { ...updated[idx], title: `${updated[idx].title} (copie)` };
+      updated.splice(idx + 1, 0, dup);
+      rebuildBody(updated);
+    },
+    [sections, rebuildBody]
   );
 
   if (sections.length === 0) {
     return (
       <StreamableScriptBlock
-        label="DÉVELOPPEMENT"
+        label="DEVELOPPEMENT"
         labelColor="#FFD700"
         value={body}
         onChange={onChange}
-        placeholder="Le développement va apparaître ici..."
+        placeholder="Le developpement va apparaitre ici..."
         minRows={4}
         isStreaming={isStreaming}
         readOnly={readOnly}
@@ -2201,17 +2238,48 @@ function BodySections({
   return (
     <div className="space-y-3">
       {sections.map((section, idx) => (
-        <StreamableScriptBlock
-          key={`${section.title}-${idx}`}
-          label={section.title.toUpperCase()}
-          labelColor={BODY_SECTION_COLORS[idx % BODY_SECTION_COLORS.length]}
-          value={section.content}
-          onChange={(v) => handleSubSectionChange(idx, v)}
-          placeholder=""
-          minRows={2}
-          isStreaming={isStreaming}
-          readOnly={readOnly}
-        />
+        <div key={`${section.title}-${idx}`} className="relative group/block">
+          <StreamableScriptBlock
+            label={section.title.toUpperCase()}
+            labelColor={BODY_SECTION_COLORS[idx % BODY_SECTION_COLORS.length]}
+            value={section.content}
+            onChange={(v) => handleSubSectionChange(idx, v)}
+            placeholder=""
+            minRows={2}
+            isStreaming={isStreaming}
+            readOnly={readOnly}
+          />
+          {/* Block controls — visible on hover, hidden during streaming */}
+          {!isStreaming && !readOnly && sections.length > 1 && (
+            <div className="absolute -right-1 top-1/2 -translate-y-1/2 translate-x-full opacity-0 group-hover/block:opacity-100 transition-opacity duration-200 flex flex-col gap-1 ml-2">
+              {idx > 0 && (
+                <button
+                  onClick={() => handleMoveUp(idx)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#111113]/90 text-brutify-text-muted hover:text-brutify-gold hover:border-brutify-gold/30 transition-all"
+                  title="Monter"
+                >
+                  <ChevronUp className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {idx < sections.length - 1 && (
+                <button
+                  onClick={() => handleMoveDown(idx)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#111113]/90 text-brutify-text-muted hover:text-brutify-gold hover:border-brutify-gold/30 transition-all"
+                  title="Descendre"
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button
+                onClick={() => handleDuplicate(idx)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#111113]/90 text-brutify-text-muted hover:text-brutify-gold hover:border-brutify-gold/30 transition-all"
+                title="Dupliquer"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
       ))}
     </div>
   );

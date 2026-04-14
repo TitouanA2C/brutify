@@ -17,7 +17,7 @@ export const PLAN_FEATURES: Record<string, PlanFeatures> = {
     canGenerateScript: true,
     canTranscribe:     true,
     canAnalyze:        false,
-    canFullAnalysis:   true,
+    canFullAnalysis:   false,
     canCustomizeTone:  false,
     canExport:         false,
     canInspireVault:   false,
@@ -50,7 +50,7 @@ export const PLAN_FEATURES: Record<string, PlanFeatures> = {
     autoTranscribeMaxDuration: 600,
     freeFullAnalyses:  1,
     maxCreators:       -1,
-    maxCredits:        6000,
+    maxCredits:        3000,
   },
 }
 

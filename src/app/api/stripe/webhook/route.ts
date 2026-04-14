@@ -47,6 +47,17 @@ export async function POST(request: Request) {
 
   const supabase = createServiceClient()
 
+  // ── Idempotence : ne jamais traiter deux fois le meme event ──
+  const eventKey = `stripe_event_${event.id}`
+  const { count: alreadyProcessed } = await supabase
+    .from("credit_transactions")
+    .select("id", { count: "exact", head: true })
+    .eq("reference_id", eventKey)
+  if ((alreadyProcessed ?? 0) > 0) {
+    console.log(`[Stripe Webhook] Event ${event.id} already processed, skipping`)
+    return NextResponse.json({ received: true })
+  }
+
   try {
     switch (event.type) {
       case "checkout.session.completed": {

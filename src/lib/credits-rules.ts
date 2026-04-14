@@ -60,13 +60,20 @@ export const ACTIVATION_BONUSES: ActivationBonus[] = [
   {
     id: "add_to_board",
     name: "Organisation pro",
-    description: "Ajouter une idée au BrutBoard",
+    description: "Ajouter une idee au BrutBoard",
     reward: 50,
     condition: "board_items_count >= 1",
   },
+  {
+    id: "leave_review",
+    name: "Ton avis compte",
+    description: "Laisser un avis sur Brutify",
+    reward: 50,
+    condition: "review_submitted == true",
+  },
 ]
 
-// Bonus total possible: 250 BP
+// Bonus total possible: 300 BP
 
 // ─── Bonus upgrade anticipé ──────────────────────────────────────────────────
 

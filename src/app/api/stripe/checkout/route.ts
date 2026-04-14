@@ -155,36 +155,17 @@ export async function POST(request: Request) {
     }
   }
 
-  // Appliquer le code promo si fourni
+  // Appliquer le code promo si fourni (uniquement les codes de la whitelist)
   if (body.promoCode) {
     const couponId = getPromoCoupon(body.promoCode)
     if (couponId) {
       try {
-        // Vérifier si le coupon existe dans Stripe
         await stripe.coupons.retrieve(couponId)
-        
-        // Appliquer le coupon via discounts
         sessionParams.discounts = [{ coupon: couponId }]
-      } catch (err) {
-        // Le coupon n'existe pas, on va le créer automatiquement
-        console.error(`Coupon ${couponId} non trouvé, création automatique`)
-        
-        // Extraire le pourcentage de réduction du nom
-        const discount = parseInt(body.promoCode.match(/\d+/)?.[0] ?? "0")
-        
-        if (discount > 0) {
-          try {
-            await stripe.coupons.create({
-              id: couponId,
-              percent_off: discount,
-              duration: "once",
-              name: `Promo ${body.promoCode}`,
-            })
-            sessionParams.discounts = [{ coupon: couponId }]
-          } catch (createErr) {
-            console.error("Erreur création coupon:", createErr)
-          }
-        }
+      } catch {
+        // Le coupon n'existe pas encore dans Stripe — on l'ignore.
+        // Les coupons doivent etre crees manuellement dans le dashboard Stripe.
+        console.warn(`[Stripe Checkout] Coupon ${couponId} absent de Stripe, promo ignoree`)
       }
     }
   }

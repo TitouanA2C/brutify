@@ -54,7 +54,7 @@ const sortOptions: { value: SortKey; label: string; icon: React.ReactNode }[] = 
   { value: "bruitScore", label: "Brut Score",  icon: <Star className="h-3.5 w-3.5" /> },
   { value: "followers",  label: "Followers",    icon: <Users className="h-3.5 w-3.5" /> },
   { value: "engagement", label: "Engagement",   icon: <Zap className="h-3.5 w-3.5" /> },
-  { value: "outlier",    label: "Outlier Ratio", icon: <Trophy className="h-3.5 w-3.5" /> },
+  { value: "outlier",    label: "Ratio viral", icon: <Trophy className="h-3.5 w-3.5" /> },
 ];
 
 function parsePercent(s: string): number {
@@ -90,7 +90,7 @@ export default function CreatorsPage() {
   const toast = useToast();
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState<FilterPlatform>("all");
-  const [nicheFilter, setNicheFilter] = useState<string | null>(null);
+  const [nicheFilter, setNicheFilter] = useState<string[]>([]);
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>("none");
@@ -124,9 +124,10 @@ export default function CreatorsPage() {
     if (platformFilter !== "all") {
       list = list.filter((c) => c.platform === platformFilter);
     }
-    if (nicheFilter) {
+    if (nicheFilter.length > 0) {
+      const lowerNiches = nicheFilter.map((n) => n.toLowerCase());
       list = list.filter(
-        (c) => c.niche?.toLowerCase() === nicheFilter.toLowerCase()
+        (c) => c.niche && lowerNiches.includes(c.niche.toLowerCase())
       );
     }
 
@@ -152,7 +153,7 @@ export default function CreatorsPage() {
         const maxCreators = PLAN_FEATURES.creator.maxCreators;
         if (watchlistCreators.length >= maxCreators) {
           // Watchlist pleine, déclencher l'upsell
-          triggerUpsell("radar_limit");
+          triggerUpsell("creator_list_full");
           return; // Ne pas ajouter
         }
       }
@@ -233,9 +234,9 @@ export default function CreatorsPage() {
               active={platformFilter === pf.value}
               onClick={() => {
                 if (pf.value === "all") {
-                  // "Tous" remet à zéro tous les filtres
+                  // "Tous" remet a zero tous les filtres
                   setPlatformFilter("all");
-                  setNicheFilter(null);
+                  setNicheFilter([]);
                 } else {
                   setPlatformFilter(platformFilter === pf.value ? "all" : pf.value);
                 }
@@ -250,18 +251,22 @@ export default function CreatorsPage() {
             <FilterPill
               key={niche}
               label={niche}
-              active={nicheFilter === niche}
-              onClick={() => setNicheFilter(nicheFilter === niche ? null : niche)}
+              active={nicheFilter.includes(niche)}
+              onClick={() => setNicheFilter(
+                nicheFilter.includes(niche)
+                  ? nicheFilter.filter((n) => n !== niche)
+                  : [...nicheFilter, niche]
+              )}
             />
           ))}
 
           {/* Reset visible quand des filtres sont actifs */}
-          {(platformFilter !== "all" || nicheFilter !== null) && (
+          {(platformFilter !== "all" || nicheFilter.length > 0) && (
             <motion.button
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              onClick={() => { setPlatformFilter("all"); setNicheFilter(null); }}
+              onClick={() => { setPlatformFilter("all"); setNicheFilter([]); }}
               className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-body text-brutify-text-muted/70 border border-white/[0.06] hover:border-white/[0.1] hover:text-brutify-text-primary transition-all cursor-pointer"
             >
               <X className="h-3 w-3" />

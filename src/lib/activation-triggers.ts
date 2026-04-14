@@ -12,9 +12,10 @@ const BONUS_ACTION_MAP: Record<string, string> = {
   scrape_videos: "scrape_videos",
   generate_script: "generate_script",
   add_to_board: "add_to_board",
+  leave_review: "leave_review",
 }
 
-export type ActivationAction = "follow_creator" | "scrape_videos" | "generate_script" | "add_to_board"
+export type ActivationAction = "follow_creator" | "scrape_videos" | "generate_script" | "add_to_board" | "leave_review"
 
 /**
  * Vérifie si une action vient de rendre un bonus réclamable (condition remplie, pas encore débloqué).
@@ -93,6 +94,15 @@ export async function checkBonusCondition(
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
       return (count ?? 0) >= 1
+    }
+
+    case "leave_review": {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single()
+      return (p as Record<string, unknown>)?.review_submitted === true
     }
 
     default:
